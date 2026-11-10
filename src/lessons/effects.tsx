@@ -1,0 +1,728 @@
+import { Component, StrictMode, useEffect, useLayoutEffect, useState } from "react";
+import { sample } from "../workbench/sample.ts";
+import type { DemoProps, Lesson } from "../workbench/types.ts";
+import {
+  LogView,
+  rememberInterval,
+  useClearLeakedIntervals,
+  useStableLog,
+} from "../workbench/bits.tsx";
+
+let leakSerial = 0;
+
+function Ticker({ onLog }: { onLog: (line: string) => void }) {
+  const [ticks, setTicks] = useState(0);
+  useEffect(() => {
+    onLog("effect: subscribed");
+    const id = window.setInterval(() => setTicks((value) => value + 1), 1000);
+    return () => {
+      window.clearInterval(id);
+      onLog("cleanup: unsubscribed");
+    };
+  }, [onLog]);
+  return (
+    <p className="readout">
+      Ticks <strong data-testid="ticks">{ticks}</strong>
+    </p>
+  );
+}
+
+function CleanupScene() {
+  const { lines, onLog } = useStableLog();
+  const [show, setShow] = useState(true);
+  return (
+    <div className="stack">
+      <div className="widget stack">
+        <button type="button" onClick={() => setShow((value) => !value)}>
+          {show ? "Unmount ticker" : "Mount ticker"}
+        </button>
+        {show ? <Ticker onLog={onLog} /> : <p className="hint">Ticker is unmounted.</p>}
+      </div>
+      <LogView lines={lines} />
+    </div>
+  );
+}
+
+type ClockProps = {
+  seed: number;
+  onLog: (line: string) => void;
+};
+
+class Clock extends Component<ClockProps, { ticks: number }> {
+  state = { ticks: 0 };
+  intervalId = 0;
+
+  componentDidMount() {
+    this.props.onLog("componentDidMount");
+    this.intervalId = window.setInterval(() => {
+      this.setState((current) => ({ ticks: current.ticks + 1 }));
+    }, 1000);
+  }
+
+  componentDidUpdate(previous: ClockProps) {
+    if (previous.seed !== this.props.seed) {
+      this.props.onLog(`componentDidUpdate (${previous.seed} to ${this.props.seed})`);
+    }
+  }
+
+  componentWillUnmount() {
+    window.clearInterval(this.intervalId);
+    this.props.onLog("componentWillUnmount");
+  }
+
+  render() {
+    return (
+      <p className="readout">
+        Ticks <strong data-testid="ticks">{this.state.ticks}</strong>
+      </p>
+    );
+  }
+}
+
+function ClassScene() {
+  const { lines, onLog } = useStableLog();
+  const [show, setShow] = useState(true);
+  const [seed, setSeed] = useState(1);
+  return (
+    <div className="stack">
+      <div className="widget stack">
+        <p className="hint">Seed {seed}</p>
+        <div className="row">
+          <button type="button" onClick={() => setSeed((value) => value + 1)}>
+            Bump seed
+          </button>
+          <button type="button" className="ghost" onClick={() => setShow((value) => !value)}>
+            {show ? "Unmount clock" : "Mount clock"}
+          </button>
+        </div>
+        {show ? <Clock seed={seed} onLog={onLog} /> : <p className="hint">Clock is unmounted.</p>}
+      </div>
+      <LogView lines={lines} />
+    </div>
+  );
+}
+
+function StaleCapture({ repaired }: { repaired: boolean }) {
+  const [count, setCount] = useState(0);
+  const [captured, setCaptured] = useState(0);
+  useEffect(() => {
+    setCaptured(count);
+  }, repaired ? [count] : []);
+  return (
+    <div className="widget stack">
+      <p className="readout">
+        Live count <strong data-testid="live">{count}</strong>
+      </p>
+      <p className="readout">
+        Captured in the effect <strong data-testid="captured">{captured}</strong>
+      </p>
+      <button type="button" onClick={() => setCount((value) => value + 1)}>
+        Increment
+      </button>
+      <p className="hint">
+        {repaired
+          ? "The effect lists count, so the captured number follows the live one."
+          : "The effect lists no dependencies, so it never reads the new count."}
+      </p>
+    </div>
+  );
+}
+
+function LeakyTicker({
+  onLog,
+  repaired,
+}: {
+  onLog: (line: string) => void;
+  repaired: boolean;
+}) {
+  const [label] = useState(() => {
+    leakSerial += 1;
+    return String(leakSerial);
+  });
+  useEffect(() => {
+    onLog(`interval ${label} started`);
+    const id = window.setInterval(() => {
+      onLog(`tick from interval ${label}`);
+    }, 800);
+    if (!repaired) {
+      rememberInterval(id);
+      return;
+    }
+    return () => {
+      window.clearInterval(id);
+      onLog(`cleanup: interval ${label} cleared`);
+    };
+  }, [label, onLog, repaired]);
+  return (
+    <p className="readout">
+      Interval <strong>{label}</strong> is running.
+    </p>
+  );
+}
+
+function LeakScene({ repaired }: { repaired: boolean }) {
+  const { lines, onLog } = useStableLog();
+  const [show, setShow] = useState(true);
+  useClearLeakedIntervals();
+  return (
+    <div className="stack">
+      <div className="widget stack">
+        <button type="button" onClick={() => setShow((value) => !value)}>
+          {show ? "Unmount ticker" : "Mount ticker"}
+        </button>
+        {show ? (
+          <LeakyTicker onLog={onLog} repaired={repaired} />
+        ) : (
+          <p className="hint">
+            {repaired
+              ? "Ticker is unmounted. The cleanup cleared the interval."
+              : "Ticker is unmounted. The interval is not."}
+          </p>
+        )}
+      </div>
+      <LogView lines={lines} />
+    </div>
+  );
+}
+
+type CallBucket = { outside: number; inside: number };
+
+function CallProbe({
+  label,
+  bucket,
+  field,
+  testId,
+}: {
+  label: string;
+  bucket: CallBucket;
+  field: keyof CallBucket;
+  testId: string;
+}) {
+  bucket[field] += 1;
+  return (
+    <p className="readout">
+      {label} <strong data-testid={testId}>{bucket[field]}</strong>
+    </p>
+  );
+}
+
+function DisplayProbe({
+  label,
+  count,
+  testId,
+}: {
+  label: string;
+  count: number;
+  testId: string;
+}) {
+  return (
+    <p className="readout">
+      {label} <strong data-testid={testId}>{count}</strong>
+    </p>
+  );
+}
+
+function StrictScene({ repaired }: { repaired: boolean }) {
+  const [bucket] = useState<CallBucket>(() => ({ outside: 0, inside: 0 }));
+  const [generation, setGeneration] = useState(0);
+  const shown = generation + 1;
+  return (
+    <div className="widget stack">
+      <button type="button" onClick={() => setGeneration((value) => value + 1)}>
+        Render again
+      </button>
+      <p className="hint">Parent renders {shown}</p>
+      {repaired ? (
+        <>
+          <DisplayProbe label="Outside StrictMode" count={shown} testId="outside" />
+          <StrictMode>
+            <DisplayProbe label="Inside StrictMode" count={shown} testId="inside" />
+          </StrictMode>
+          <p className="hint">Both probes display the parent count. Neither one adds during render.</p>
+        </>
+      ) : (
+        <>
+          <CallProbe label="Outside StrictMode" bucket={bucket} field="outside" testId="outside" />
+          <StrictMode>
+            <CallProbe label="Inside StrictMode" bucket={bucket} field="inside" testId="inside" />
+          </StrictMode>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LayoutBadge() {
+  const [x, setX] = useState(0);
+  useLayoutEffect(() => {
+    setX(180);
+  }, []);
+  return <Badge x={x} label="useLayoutEffect" />;
+}
+
+function PassiveBadge() {
+  const [x, setX] = useState(0);
+  useEffect(() => {
+    setX(180);
+  }, []);
+  return <Badge x={x} label="useEffect" />;
+}
+
+function Badge({ x, label }: { x: number; label: string }) {
+  return (
+    <div className="track" data-testid="track">
+      <span className="pin start">start</span>
+      <span className="pin target">target</span>
+      <div className="badge" data-testid="badge" style={{ transform: `translateX(${x}px)` }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function LayoutScene({ passive }: { passive: boolean }) {
+  const [replay, setReplay] = useState(0);
+  return (
+    <div className="widget stack">
+      <button type="button" onClick={() => setReplay((value) => value + 1)}>
+        Replay
+      </button>
+      {passive ? <PassiveBadge key={replay} /> : <LayoutBadge key={replay} />}
+      <p className="hint">
+        {passive
+          ? "The badge paints at the start, then jumps. One frame, so hit Replay and watch the left edge."
+          : "The badge should appear on the target. The start position never paints."}
+      </p>
+    </div>
+  );
+}
+
+const cleanupCode = sample`
+  function Ticker({ onLog }) {
+    const [ticks, setTicks] = useState(0);
+    useEffect(() => {
+      onLog("effect: subscribed"); /*focus*/
+      const id = setInterval(() => setTicks((value) => value + 1), 1000);
+      return () => {
+        clearInterval(id); /*focus*/
+        onLog("cleanup: unsubscribed"); /*focus*/
+      };
+    }, [onLog]);
+    return <p>Ticks {ticks}</p>;
+  }
+`;
+
+const classCode = sample`
+  class Clock extends Component {
+    componentDidMount() {
+      this.props.onLog("componentDidMount"); /*focus*/
+      this.intervalId = setInterval(() => {
+        this.setState((state) => ({ ticks: state.ticks + 1 }));
+      }, 1000);
+    }
+    componentDidUpdate(previous) {
+      if (previous.seed !== this.props.seed) {
+        this.props.onLog("componentDidUpdate"); /*focus*/
+      }
+    }
+    componentWillUnmount() {
+      clearInterval(this.intervalId); /*focus*/
+      this.props.onLog("componentWillUnmount"); /*focus*/
+    }
+    render() {
+      return <p>Ticks {this.state.ticks}</p>;
+    }
+  }
+`;
+
+const staleCode = sample`
+  function StaleCapture() {
+    const [count, setCount] = useState(0);
+    const [captured, setCaptured] = useState(0);
+    useEffect(() => {
+      setCaptured(count); /*focus*/
+    }, []); /*focus*/
+    return (
+      <>
+        <p>Live count {count}</p>
+        <p>Captured in the effect {captured}</p>
+        <button onClick={() => setCount((value) => value + 1)}>Increment</button>
+      </>
+    );
+  }
+`;
+
+const leakCode = sample`
+  function LeakyTicker({ onLog }) {
+    useEffect(() => {
+      onLog("interval started");
+      const id = setInterval(() => onLog("tick"), 800);
+      rememberInterval(id); /*focus*/
+      // no cleanup function
+    }, [onLog]);
+  }
+`;
+
+const strictCode = sample`
+  function CallProbe({ bucket, field }) {
+    bucket[field] += 1; /*focus*/
+    return <strong>{bucket[field]}</strong>;
+  }
+
+  function StrictScene() {
+    const [bucket] = useState(() => ({ outside: 0, inside: 0 }));
+    const [generation, setGeneration] = useState(0);
+    return (
+      <>
+        <button onClick={() => setGeneration((value) => value + 1)}>
+          Render again
+        </button>
+        <p>Parent renders {generation + 1}</p>
+        <CallProbe bucket={bucket} field="outside" />
+        <StrictMode> /*focus*/
+          <CallProbe bucket={bucket} field="inside" />
+        </StrictMode>
+      </>
+    );
+  }
+`;
+
+const layoutCode = sample`
+  function LayoutBadge() {
+    const [x, setX] = useState(0);
+    useLayoutEffect(() => {
+      setX(180); /*focus*/
+    }, []);
+    return <div style={{ transform: \`translateX(\${x}px)\` }} />;
+  }
+`;
+
+const passiveCode = sample`
+  function PassiveBadge() {
+    const [x, setX] = useState(0);
+    useEffect(() => {
+      setX(180); /*focus*/
+    }, []);
+    return <div style={{ transform: \`translateX(\${x}px)\` }} />;
+  }
+`;
+
+const strictFixed = sample`
+  function CallProbe({ count }) {
+    return <strong>{count}</strong>; /*focus*/
+  }
+
+  function StrictScene() {
+    const [generation, setGeneration] = useState(0);
+    const shown = generation + 1; /*focus*/
+    return (
+      <>
+        <button onClick={() => setGeneration((value) => value + 1)}>
+          Render again
+        </button>
+        <p>Parent renders {shown}</p>
+        <CallProbe count={shown} />
+        <StrictMode>
+          <CallProbe count={shown} />
+        </StrictMode>
+      </>
+    );
+  }
+`;
+
+const staleFixed = sample`
+  function StaleCapture() {
+    const [count, setCount] = useState(0);
+    const [captured, setCaptured] = useState(0);
+    useEffect(() => {
+      setCaptured(count); /*focus*/
+    }, [count]); /*focus*/
+    return (
+      <>
+        <p>Live count {count}</p>
+        <p>Captured in the effect {captured}</p>
+        <button onClick={() => setCount((value) => value + 1)}>Increment</button>
+      </>
+    );
+  }
+`;
+
+const leakFixed = sample`
+  function LeakyTicker({ onLog }) {
+    useEffect(() => {
+      onLog("interval started");
+      const id = setInterval(() => onLog("tick"), 800);
+      return () => { /*focus*/
+        clearInterval(id); /*focus*/
+        onLog("cleanup: unsubscribed");
+      };
+    }, [onLog]);
+  }
+`;
+
+export function EffectsDemo({ scenarioId, repaired }: DemoProps) {
+  if (scenarioId === "class") return <ClassScene />;
+  if (scenarioId === "stale") return <StaleCapture repaired={repaired} />;
+  if (scenarioId === "leak") return <LeakScene repaired={repaired} />;
+  if (scenarioId === "strict") return <StrictScene repaired={repaired} />;
+  if (scenarioId === "layout") return <LayoutScene passive={false} />;
+  if (scenarioId === "passive") return <LayoutScene passive />;
+  return <CleanupScene />;
+}
+
+export const effectsLesson: Lesson = {
+  id: "effects",
+  kicker: "useEffect",
+  title: "Effects and lifecycles",
+  blurb:
+    "Effects subscribe after paint. Class lifecycle methods are the older names for mount, update, and unmount.",
+  Demo: EffectsDemo,
+  scenarios: [
+    {
+      id: "cleanup",
+      label: "Cleanup on unmount",
+      tease: "The effect subscribes, and the returned function clears the interval.",
+      tryThis: "Turn the ticker off and watch the log stop.",
+      code: cleanupCode.text,
+      focus: cleanupCode.focus,
+      explanation: (
+        <>
+          <p>
+            The effect runs after the ticker paints. It starts one interval and returns
+            a cleanup function. That cleanup is the unmount step for this effect: it
+            runs when the ticker leaves the stage, and it clears the interval.
+          </p>
+          <p>
+            Unmount the ticker. The log should say unsubscribed, and then go quiet.
+            Mount it again and you get one new subscription, still ticking once a second.
+          </p>
+          <p>
+            A dependency-based effect also runs its cleanup before the effect runs
+            again. <code>componentWillUnmount</code> does not do that. Cleanup covers
+            the next run, not only the final unmount.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "class",
+      label: "Class lifecycle methods",
+      tease: "componentDidMount, componentDidUpdate, and componentWillUnmount on a real class.",
+      tryThis: "Bump the seed, then unmount the clock.",
+      code: classCode.text,
+      focus: classCode.focus,
+      explanation: (
+        <>
+          <p>
+            This clock is a class component. <code>componentDidMount</code> starts the
+            interval after the first render. <code>componentWillUnmount</code> clears
+            it when the clock leaves the stage.
+          </p>
+          <p>
+            Bump the seed. <code>componentDidUpdate</code> runs because the props
+            changed, and the log says so. The interval also calls <code>setState</code>{" "}
+            every second, which updates the class too, but the log ignores those. It
+            only records a seed change. Otherwise the log would fill with ticks.
+          </p>
+          <p>
+            The hooks ticker next door maps mount and unmount onto one effect. Update
+            maps onto an effect whose dependency list includes the value you care about.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "stale",
+      label: "Missing dependency",
+      tease: "An empty dependency list freezes the count the effect saw.",
+      tryThis: "Increment the live count. The captured count stays.",
+      code: staleCode.text,
+      focus: staleCode.focus,
+      explanation: (
+        <>
+          <p>
+            The effect copies <code>count</code> into <code>captured</code>, and its
+            dependency list is empty. React runs it after the first paint and never
+            again.
+          </p>
+          <p>
+            Increment the live count. That state lives in the component, so the live
+            number moves. The effect does not run, so the captured number stays at the
+            first value.
+          </p>
+          <p>
+            Put <code>count</code> in the dependency list and the effect runs after
+            every change. The empty list is a promise: this effect does not read
+            anything that changes. Here the promise is a lie, and the captured number
+            is the evidence.
+          </p>
+        </>
+      ),
+      repair: {
+        code: staleFixed.text,
+        focus: staleFixed.focus,
+        tryThis: "Increment the live count. The captured count follows it.",
+        explanation: (
+          <>
+            <p>
+              <code>count</code> is in the dependency list. Increment it and React runs
+              the effect again, after that render. The captured number moves with the
+              live one.
+            </p>
+            <p>
+              The empty list was the bug. It promised the effect did not read anything
+              that changes, and then it read <code>count</code>. Listing the value you
+              read is the fix.
+            </p>
+          </>
+        ),
+      },
+    },
+    {
+      id: "leak",
+      label: "No cleanup",
+      tease: "Unmounting the ticker leaves the interval running.",
+      tryThis: "Unmount the ticker, wait a second, then mount it again.",
+      code: leakCode.text,
+      focus: leakCode.focus,
+      explanation: (
+        <>
+          <p>
+            This effect starts an interval and returns nothing. Unmounting the ticker
+            removes it from the screen and leaves the timer alone. Ticks keep arriving
+            in the log, which lives in the parent.
+          </p>
+          <p>
+            Mount the ticker again. A second interval starts. You now get ticks from
+            both ids. That is the leak: each visit adds a timer, and nothing removes
+            the old one.
+          </p>
+          <p>
+            Leaving this scenario clears those timers from here, so they do not follow
+            you into the next lesson. The cleanup function in the first scenario is
+            what would have done that on unmount.
+          </p>
+        </>
+      ),
+      repair: {
+        code: leakFixed.text,
+        focus: leakFixed.focus,
+        tryThis: "Unmount the ticker and watch the log go quiet.",
+        explanation: (
+          <>
+            <p>
+              The effect still starts the interval. It also returns a cleanup function.
+              Unmount the ticker and that function clears the interval. The log records
+              the cleanup, then stops.
+            </p>
+            <p>
+              Mount it again and you get one new interval, not a second one stacked on
+              the first. The cleanup is what the broken version was missing.
+            </p>
+          </>
+        ),
+      },
+    },
+    {
+      id: "strict",
+      label: "Strict Mode",
+      tease: "In development, a child of StrictMode renders twice. The second pass is the one you see.",
+      tryThis: "Compare the two numbers, then press Render again.",
+      code: strictCode.text,
+      focus: strictCode.focus,
+      explanation: (
+        <>
+          <p>
+            Each probe adds 1 to a plain object while it renders. That object is not
+            state, so React does not reset it between passes. The number on screen is
+            how many times the function actually ran.
+          </p>
+          <p>
+            In development, React renders a component inside <code>StrictMode</code>,
+            discards that pass, and renders it again. The first paint shows 2 inside
+            and 1 outside. Press Render again. The parent renders once. The outside
+            number adds 1. The inside number adds 2.
+          </p>
+          <p>
+            The discarded pass does not keep state. It does re-run the function, so a
+            side effect in the body happens twice. The reducer lesson is that same
+            extra pass, inside <code>useReducer</code>. The rest of this workbench
+            leaves Strict Mode off, so those lessons run once. A production build
+            skips the extra pass.
+          </p>
+        </>
+      ),
+      repair: {
+        code: strictFixed.text,
+        focus: strictFixed.focus,
+        tryThis: "Press Render again. The two numbers stay equal.",
+        explanation: (
+          <>
+            <p>
+              The probes only display a number the parent computed once. They do not
+              add to anything while rendering. <code>StrictMode</code> still renders
+              the inside probe twice in development and still throws the first pass
+              away. Both passes read the same count, so the numbers match.
+            </p>
+            <p>
+              Press Render again. The parent renders once, and both numbers go up by
+              1. The broken version did the adding inside the probe, on an object
+              React does not reset. Moving that work out of the render is the fix.
+              The extra pass can still happen. It no longer changes anything you can
+              see.
+            </p>
+          </>
+        ),
+      },
+    },
+    {
+      id: "layout",
+      label: "useLayoutEffect",
+      tease: "The badge moves before the browser paints.",
+      tryThis: "Press Replay and watch where the badge first appears.",
+      code: layoutCode.text,
+      focus: layoutCode.focus,
+      explanation: (
+        <>
+          <p>
+            <code>useLayoutEffect</code> runs after React updates the DOM and before
+            the browser paints. The first render puts the badge at the start. The
+            layout effect sets <code>x</code> to 180, React renders again, and only
+            then does the browser paint. You see the badge on the target.
+          </p>
+          <p>
+            Use this when a measurement has to land before the user sees the frame.
+            The next scenario is the same move in <code>useEffect</code>, which is
+            after paint.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "passive",
+      label: "useEffect after paint",
+      tease: "The badge paints at the start, then jumps.",
+      tryThis: "Press Replay and watch the left edge of the track.",
+      code: passiveCode.text,
+      focus: passiveCode.focus,
+      explanation: (
+        <>
+          <p>
+            <code>useEffect</code> runs after the browser paints. The first paint has
+            the badge at the start. Then the effect sets <code>x</code> to 180 and the
+            badge jumps.
+          </p>
+          <p>
+            On a fast machine that jump is a single frame. Replay is there so you can
+            look for it. The layout-effect scenario never paints the start position,
+            because the move happens before paint.
+          </p>
+          <p>
+            Most subscriptions belong in <code>useEffect</code>. Layout effects are
+            for the cases where the user would see the wrong frame.
+          </p>
+        </>
+      ),
+    },
+  ],
+};
