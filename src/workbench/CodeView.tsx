@@ -1,7 +1,18 @@
 import { Highlight } from "prism-react-renderer";
 import { codeTheme } from "./codeTheme.ts";
+import { termLessons } from "./terms.ts";
 
-export function CodeView({ code, focus }: { code: string; focus: number[] }) {
+export function CodeView({
+  code,
+  focus,
+  lessonId,
+  onJump,
+}: {
+  code: string;
+  focus: number[];
+  lessonId: string;
+  onJump: (lessonId: string) => void;
+}) {
   const marked = new Set(focus);
   return (
     <Highlight theme={codeTheme} code={code} language="tsx">
@@ -25,9 +36,29 @@ export function CodeView({ code, focus }: { code: string; focus: number[] }) {
                 <span className="code-text">
                   {line.length === 0
                     ? " "
-                    : line.map((token, tokenIndex) => (
-                        <span key={tokenIndex} {...getTokenProps({ token })} />
-                      ))}
+                    : line.map((token, tokenIndex) => {
+                        const tokenProps = getTokenProps({ token });
+                        const target = termLessons[token.content];
+                        if (!target) return <span key={tokenIndex} {...tokenProps} />;
+                        const here = target === lessonId;
+                        const title = here ? "Current lesson" : "Jump to lesson.";
+                        return (
+                          <a
+                            key={tokenIndex}
+                            {...tokenProps}
+                            className={[tokenProps.className, "code-term"].filter(Boolean).join(" ")}
+                            href={`#${target}`}
+                            title={title}
+                            aria-label={`${token.content}. ${title}`}
+                            data-current={here ? "true" : "false"}
+                            aria-current={here ? "page" : undefined}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              if (!here) onJump(target);
+                            }}
+                          />
+                        );
+                      })}
                 </span>
               </div>
             );

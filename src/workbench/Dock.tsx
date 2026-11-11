@@ -13,11 +13,13 @@ type DockProps = {
   width: number | null;
   onWidth: (width: number | null) => void;
   onToggle: (panel: PanelKey) => void;
-  onToggleAll: () => void;
   onScenario: (id: string) => void;
   onRepair: (id: string, repaired: boolean) => void;
   onResetScenario: () => void;
   onReset: () => void;
+  lessonId: string;
+  onJump: (lessonId: string) => void;
+  lessonLink: { label: string; href?: string; onClick: () => void };
 };
 
 const STAGE_MIN = 280;
@@ -129,13 +131,14 @@ export function Dock({
   width,
   onWidth,
   onToggle,
-  onToggleAll,
   onScenario,
   onRepair,
   onResetScenario,
   onReset,
+  lessonId,
+  onJump,
+  lessonLink,
 }: DockProps) {
-  const allOpen = open.code && open.explain && open.whatif;
   const [copied, setCopied] = useState(false);
   const [floor, setFloor] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -457,9 +460,16 @@ export function Dock({
       />
       <div className="dock-bar">
         <p className="nav-label">Panels</p>
-        <button type="button" className="text-btn" onClick={onToggleAll}>
-          {allOpen ? "Collapse all" : "Expand all"}
-        </button>
+        {lessonLink.href ? (
+          <a className="text-btn" href={lessonLink.href} onClick={(event) => {
+            event.preventDefault();
+            lessonLink.onClick();
+          }}>
+            {lessonLink.label}
+          </a>
+        ) : (
+          <span className="text-btn is-disabled">{lessonLink.label}</span>
+        )}
       </div>
       <section className={open.code ? "panel open" : "panel"} data-panel="code" style={panelStyle("code")}>
         <div className="panel-h">
@@ -481,7 +491,13 @@ export function Dock({
         </div>
         <div className="panel-body" id="panel-code" hidden={!open.code}>
           <p className="panel-note">This is the code running on the stage. Marked lines are the part this scenario changes.</p>
-          <CodeView key={`${scenario.id}:${repaired ? "fixed" : "broken"}`} code={scenario.code} focus={scenario.focus} />
+          <CodeView
+            key={`${scenario.id}:${repaired ? "fixed" : "broken"}`}
+            code={scenario.code}
+            focus={scenario.focus}
+            lessonId={lessonId}
+            onJump={onJump}
+          />
         </div>
       </section>
       {renderSplit("explain")}

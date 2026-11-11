@@ -1,4 +1,4 @@
-import { Component, StrictMode, useEffect, useLayoutEffect, useState } from "react";
+import { Component, StrictMode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import {
@@ -252,46 +252,99 @@ function StrictScene({ repaired }: { repaired: boolean }) {
   );
 }
 
-function LayoutBadge() {
-  const [x, setX] = useState(0);
+type Note = { id: string; text: string; anchor?: boolean };
+
+const OPENING: Note[] = [
+  { id: "mon", text: "Monday. Draft the empty state." },
+  { id: "tue", text: "Tuesday. The panel remembers its height." },
+  { id: "wed", text: "Wednesday. Keep this note in view.", anchor: true },
+];
+
+const OLDER_COPY = [
+  "Archived. The first sketch of the dock.",
+  "Archived. Why the code panel takes the leftover height.",
+  "Archived. A note from the review.",
+  "Archived. The scroll position before this load.",
+  "Archived. The empty state we threw away.",
+  "Archived. Names for the three panels.",
+];
+
+function Thread({ layout }: { layout: boolean }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const before = useRef(0);
+  const pending = useRef(false);
+  const ready = useRef(false);
+  const serial = useRef(0);
+  const [notes, setNotes] = useState(OPENING);
+  const [verdict, setVerdict] = useState("You are reading the marked note.");
+
+  function anchorVisible() {
+    const node = scroller.current;
+    const anchor = node?.querySelector<HTMLElement>("[data-anchor]");
+    if (!node || !anchor) return false;
+    const box = node.getBoundingClientRect();
+    const mark = anchor.getBoundingClientRect();
+    return mark.top >= box.top - 2 && mark.bottom <= box.bottom + 2;
+  }
+
+  function restore() {
+    const node = scroller.current;
+    if (!node || !pending.current) return;
+    node.scrollTop += node.scrollHeight - before.current;
+    pending.current = false;
+  }
+
+  function loadOlder() {
+    const node = scroller.current;
+    if (!node) return;
+    before.current = node.scrollHeight;
+    pending.current = true;
+    const batch = OLDER_COPY.map((text) => {
+      serial.current += 1;
+      return { id: `old-${serial.current}`, text };
+    });
+    setNotes((current) => [...batch, ...current]);
+  }
+
   useLayoutEffect(() => {
-    setX(180);
-  }, []);
-  return <Badge x={x} label="useLayoutEffect" />;
-}
+    const node = scroller.current;
+    if (!node) return;
+    if (!ready.current) {
+      node.scrollTop = node.scrollHeight;
+      ready.current = true;
+      return;
+    }
+    if (!pending.current) return;
+    if (layout) restore();
+    const next = anchorVisible()
+      ? "The marked note stayed in view."
+      : "The marked note was pushed out of view.";
+    setVerdict((current) => (current === next ? current : next));
+  }, [notes, layout]);
 
-function PassiveBadge() {
-  const [x, setX] = useState(0);
   useEffect(() => {
-    setX(180);
-  }, []);
-  return <Badge x={x} label="useEffect" />;
-}
+    if (layout || !pending.current) return;
+    const timer = window.setTimeout(() => {
+      restore();
+      setVerdict("The note came back after paint. That jump is the frame useLayoutEffect skips.");
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [notes, layout]);
 
-function Badge({ x, label }: { x: number; label: string }) {
-  return (
-    <div className="track" data-testid="track">
-      <span className="pin start">start</span>
-      <span className="pin target">target</span>
-      <div className="badge" data-testid="badge" style={{ transform: `translateX(${x}px)` }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function LayoutScene({ passive }: { passive: boolean }) {
-  const [replay, setReplay] = useState(0);
   return (
     <div className="widget stack">
-      <button type="button" onClick={() => setReplay((value) => value + 1)}>
-        Replay
+      <button type="button" onClick={loadOlder}>
+        Load older notes
       </button>
-      {passive ? <PassiveBadge key={replay} /> : <LayoutBadge key={replay} />}
-      <p className="hint">
-        {passive
-          ? "The badge paints at the start, then jumps. One frame, so hit Replay and watch the left edge."
-          : "The badge should appear on the target. The start position never paints."}
+      <div className="thread" ref={scroller} data-testid="thread">
+        {notes.map((note) => (
+          <p key={note.id} data-anchor={note.anchor ? "true" : undefined}>
+            {note.text}
+          </p>
+        ))}
+      </div>
+      <p className="hint" data-testid="scroll-verdict">
+        {verdict}
       </p>
     </div>
   );
@@ -388,22 +441,53 @@ const strictCode = sample`
 `;
 
 const layoutCode = sample`
-  function LayoutBadge() {
-    const [x, setX] = useState(0);
+  function NotesThread() {
+    const scroller = useRef(null);
+    const before = useRef(0);
+    const [notes, setNotes] = useState(latest);
+
+    function loadOlder() {
+      before.current = scroller.current.scrollHeight; /*focus*/
+      setNotes((current) => [...older, ...current]);
+    }
+
     useLayoutEffect(() => {
-      setX(180); /*focus*/
-    }, []);
-    return <div style={{ transform: \`translateX(\${x}px)\` }} />;
+      const node = scroller.current;
+      node.scrollTop += node.scrollHeight - before.current; /*focus*/
+    }, [notes]);
+
+    return (
+      <>
+        <button onClick={loadOlder}>Load older notes</button>
+        <div className="thread" ref={scroller}>
+          {notes.map((note) => <p key={note.id}>{note.text}</p>)}
+        </div>
+      </>
+    );
   }
 `;
 
 const passiveCode = sample`
-  function PassiveBadge() {
-    const [x, setX] = useState(0);
+  function NotesThread() {
+    const scroller = useRef(null);
+    const before = useRef(0);
+    const [notes, setNotes] = useState(latest);
+
+    function loadOlder() {
+      before.current = scroller.current.scrollHeight;
+      setNotes((current) => [...older, ...current]);
+    }
+
     useEffect(() => {
-      setX(180); /*focus*/
-    }, []);
-    return <div style={{ transform: \`translateX(\${x}px)\` }} />;
+      const node = scroller.current;
+      node.scrollTop += node.scrollHeight - before.current; /*focus*/
+    }, [notes]);
+
+    return (
+      <div className="thread" ref={scroller}>
+        {notes.map((note) => <p key={note.id}>{note.text}</p>)}
+      </div>
+    );
   }
 `;
 
@@ -465,8 +549,8 @@ export function EffectsDemo({ scenarioId, repaired }: DemoProps) {
   if (scenarioId === "stale") return <StaleCapture repaired={repaired} />;
   if (scenarioId === "leak") return <LeakScene repaired={repaired} />;
   if (scenarioId === "strict") return <StrictScene repaired={repaired} />;
-  if (scenarioId === "layout") return <LayoutScene passive={false} />;
-  if (scenarioId === "passive") return <LayoutScene passive />;
+  if (scenarioId === "layout") return <Thread layout />;
+  if (scenarioId === "passive") return <Thread layout={false} />;
   return <CleanupScene />;
 }
 
@@ -678,22 +762,25 @@ export const effectsLesson: Lesson = {
     {
       id: "layout",
       label: "useLayoutEffect",
-      tease: "The badge moves before the browser paints.",
-      tryThis: "Press Replay and watch where the badge first appears.",
+      tease: "Loading older notes keeps the one you were reading in place.",
+      tryThis: "Press Load older notes. The marked note should not move.",
       code: layoutCode.text,
       focus: layoutCode.focus,
       explanation: (
         <>
           <p>
             <code>useLayoutEffect</code> runs after React updates the DOM and before
-            the browser paints. The first render puts the badge at the start. The
-            layout effect sets <code>x</code> to 180, React renders again, and only
-            then does the browser paint. You see the badge on the target.
+            the browser paints. Load older notes inserts rows above the one you are
+            reading. The scroll position is still the old number, so that note would
+            slide out of the window. The layout effect adds the height of the new
+            rows to <code>scrollTop</code> before paint, and the marked note stays
+            where it was.
           </p>
           <p>
-            Use this when a measurement has to land before the user sees the frame.
-            The next scenario is the same move in <code>useEffect</code>, which is
-            after paint.
+            You cannot measure those rows during render. They have to be in the DOM
+            first. A chat loading history above the message you are on, and a menu
+            that flips so it stays on screen, are the same situation. The correction
+            has to land before the user sees the frame.
           </p>
         </>
       ),
@@ -701,25 +788,23 @@ export const effectsLesson: Lesson = {
     {
       id: "passive",
       label: "useEffect after paint",
-      tease: "The badge paints at the start, then jumps.",
-      tryThis: "Press Replay and watch the left edge of the track.",
+      tease: "The same scroll correction waits until after paint, so the list jumps.",
+      tryThis: "Press Load older notes and watch the marked note leave, then come back.",
       code: passiveCode.text,
       focus: passiveCode.focus,
       explanation: (
         <>
           <p>
-            <code>useEffect</code> runs after the browser paints. The first paint has
-            the badge at the start. Then the effect sets <code>x</code> to 180 and the
-            badge jumps.
+            <code>useEffect</code> runs after the browser paints. The list is drawn
+            first with the old scroll position, so the marked note leaves the window.
+            This stage holds that frame so you can see it. The effect then applies
+            the same correction, and the note comes back.
           </p>
           <p>
-            On a fast machine that jump is a single frame. Replay is there so you can
-            look for it. The layout-effect scenario never paints the start position,
-            because the move happens before paint.
-          </p>
-          <p>
-            Most subscriptions belong in <code>useEffect</code>. Layout effects are
-            for the cases where the user would see the wrong frame.
+            In an app that round trip is a single paint, and a single paint is enough
+            to notice. Subscriptions and fetching belong in <code>useEffect</code>.
+            Measuring the DOM to correct what the user is about to see belongs in{" "}
+            <code>useLayoutEffect</code>.
           </p>
         </>
       ),

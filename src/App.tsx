@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { lessons } from "./lessons/index.ts";
+import { BotQuestion } from "./workbench/BotQuestion.tsx";
 import { CatchBoundary } from "./workbench/bits.tsx";
 import { Dock } from "./workbench/Dock.tsx";
 import type { PanelKey } from "./workbench/types.ts";
@@ -8,6 +9,8 @@ function readHash() {
   const id = window.location.hash.replace(/^#/, "");
   return lessons.some((lesson) => lesson.id === id) ? id : lessons[0].id;
 }
+
+type TrailStop = { lessonId: string; scenarioId: string; repaired: boolean };
 
 export default function App() {
   const [lessonId, setLessonId] = useState(readHash);
@@ -20,6 +23,8 @@ export default function App() {
     explain: true,
     whatif: true,
   });
+  const [trail, setTrail] = useState<TrailStop[]>([]);
+  const viaLink = useRef<{ restore: { scenarioId: string; repaired: boolean } | null } | null>(null);
 
   const scenario =
     lesson.scenarios.find((item) => item.id === scenarioId) ?? lesson.scenarios[0];
@@ -43,9 +48,15 @@ export default function App() {
     const sync = () => {
       const id = readHash();
       const next = lessons.find((item) => item.id === id) ?? lessons[0];
+      const via = viaLink.current;
+      viaLink.current = null;
+      if (!via) setTrail([]);
+      const restore = via?.restore;
+      const scenarioStillThere =
+        restore != null && next.scenarios.some((item) => item.id === restore.scenarioId);
       setLessonId(next.id);
-      setScenarioId(next.scenarios[0].id);
-      setRepaired(false);
+      setScenarioId(scenarioStillThere ? restore.scenarioId : next.scenarios[0].id);
+      setRepaired(scenarioStillThere ? restore.repaired : false);
       setGeneration((value) => value + 1);
     };
     window.addEventListener("hashchange", sync);
@@ -64,9 +75,30 @@ export default function App() {
     setOpen((current) => ({ ...current, [panel]: !current[panel] }));
   }
 
-  function toggleAll() {
-    const next = !(open.code && open.explain && open.whatif);
-    setOpen({ code: next, explain: next, whatif: next });
+  const previous = lessons[lessons.findIndex((item) => item.id === lesson.id) - 1];
+  const back = trail[trail.length - 1];
+
+  function jumpTo(id: string) {
+    if (id === lesson.id) return;
+    viaLink.current = { restore: null };
+    setTrail((current) => [
+      ...current,
+      { lessonId: lesson.id, scenarioId: scenario.id, repaired },
+    ]);
+    window.location.hash = id;
+  }
+
+  function goBack() {
+    if (!back) return;
+    viaLink.current = { restore: { scenarioId: back.scenarioId, repaired: back.repaired } };
+    setTrail((current) => current.slice(0, -1));
+    window.location.hash = back.lessonId;
+  }
+
+  function goPrevious() {
+    if (!previous) return;
+    viaLink.current = { restore: null };
+    window.location.hash = previous.id;
   }
 
   return (
@@ -162,24 +194,27 @@ export default function App() {
           })}
         </nav>
         <main className="stage" data-lesson={lesson.id}>
-          <header className="stage-h">
-            <p className="kicker">{lesson.kicker}</p>
-            <h1>{lesson.title}</h1>
-            <p className="blurb">{lesson.blurb}</p>
-          </header>
-          <p className="tryline" aria-live="polite">
-            <span>Try this</span>
-            {shown.tryThis}
-          </p>
-          <div className="stage-frame" data-scenario={scenario.id}>
-            <CatchBoundary resetKey={`${lesson.id}:${scenario.id}:${showingRepair}:${generation}`}>
-              <lesson.Demo
-                key={`${lesson.id}:${scenario.id}:${showingRepair}:${generation}`}
-                scenarioId={scenario.id}
-                repaired={showingRepair}
-              />
-            </CatchBoundary>
+          <div className="stage-scroll">
+            <header className="stage-h">
+              <p className="kicker">{lesson.kicker}</p>
+              <h1>{lesson.title}</h1>
+              <p className="blurb">{lesson.blurb}</p>
+            </header>
+            <p className="tryline" aria-live="polite">
+              <span>Try this</span>
+              {shown.tryThis}
+            </p>
+            <div className="stage-frame" data-scenario={scenario.id}>
+              <CatchBoundary resetKey={`${lesson.id}:${scenario.id}:${showingRepair}:${generation}`}>
+                <lesson.Demo
+                  key={`${lesson.id}:${scenario.id}:${showingRepair}:${generation}`}
+                  scenarioId={scenario.id}
+                  repaired={showingRepair}
+                />
+              </CatchBoundary>
+            </div>
           </div>
+          <BotQuestion lessonTitle={lesson.title} scenarioLabel={scenario.label} />
         </main>
         <Dock
           scenario={shown}
@@ -191,7 +226,15 @@ export default function App() {
           width={dockWidth}
           onWidth={dockOpen ? setOpenWidth : setRailWidth}
           onToggle={toggle}
-          onToggleAll={toggleAll}
+          lessonId={lesson.id}
+          onJump={jumpTo}
+          lessonLink={
+            back
+              ? { label: "← Go back", href: `#${back.lessonId}`, onClick: goBack }
+              : previous
+                ? { label: "← Previous Lesson", href: `#${previous.id}`, onClick: goPrevious }
+                : { label: "← Previous Lesson", onClick: goPrevious }
+          }
           onScenario={(id) => {
             setScenarioId(id);
             setRepaired(false);
