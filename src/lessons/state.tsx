@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
-import { RenderMark } from "../workbench/bits.tsx";
+import { CountStepper, RenderMark } from "../workbench/bits.tsx";
 
 function useTimers() {
   const timers = useRef<number[]>([]);
@@ -63,7 +63,9 @@ function StaleCounter({ repaired }: { repaired: boolean }) {
       </button>
       <ul className="matches" data-testid="notes">
         {notes.map((note, index) => (
-          <li key={`${index}:${note}`}>{note}</li>
+          <li key={`${index}:${note}`} className={note.startsWith("Timer closed") ? "toll" : undefined}>
+            {note}
+          </li>
         ))}
       </ul>
     </div>
@@ -72,14 +74,26 @@ function StaleCounter({ repaired }: { repaired: boolean }) {
 
 function MutationCounter({ repaired }: { repaired: boolean }) {
   const [profile, setProfile] = useState({ name: "Ada" });
-  const [tick, setTick] = useState(0);
+  const [opened, setOpened] = useState(1);
+  const memory = useRef(profile.name);
+  const memoryNode = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const node = memoryNode.current;
+    if (!node) return;
+    node.textContent = `Memory says ${memory.current}`;
+    node.className = memory.current === profile.name ? "readout" : "toll";
+  });
   return (
     <div className="widget stack">
       <RenderMark name="counter" />
       <p className="readout">
         Screen says <strong data-testid="name">{profile.name}</strong>
       </p>
-      {repaired ? null : <p className="hint">Unrelated renders: {tick}</p>}
+      {repaired ? null : (
+        <p className="readout" ref={memoryNode} data-testid="memory">
+          Memory says {memory.current}
+        </p>
+      )}
       <div className="row">
         <button
           type="button"
@@ -89,16 +103,26 @@ function MutationCounter({ repaired }: { repaired: boolean }) {
               return;
             }
             profile.name = "Grace";
+            memory.current = "Grace";
+            const node = memoryNode.current;
+            if (!node) return;
+            node.textContent = "Memory says Grace";
+            node.className = "toll";
           }}
         >
           {repaired ? "Set name to Grace" : "Mutate name to Grace"}
         </button>
         {repaired ? null : (
           <>
-            <button type="button" onClick={() => setTick((value) => value + 1)}>
-              Unrelated render
-            </button>
-            <button type="button" className="ghost" onClick={() => setProfile({ name: "Grace" })}>
+            <CountStepper label="Times opened" value={opened} onChange={setOpened} />
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                memory.current = "Grace";
+                setProfile({ name: "Grace" });
+              }}
+            >
               Replace state
             </button>
           </>
@@ -181,11 +205,11 @@ const stale = sample`
 const mutation = sample`
   function MutationCounter() {
     const [profile, setProfile] = useState({ name: "Ada" });
-    const [tick, setTick] = useState(0);
+    const [opened, setOpened] = useState(1);
     return (
       <>
         <p>Screen says {profile.name}</p>
-        <p>Unrelated renders: {tick}</p>
+        <p>Memory says {profile.name}</p>
         <button
           onClick={() => {
             profile.name = "Grace"; /*focus*/
@@ -193,9 +217,9 @@ const mutation = sample`
         >
           Mutate name to Grace
         </button>
-        <button onClick={() => setTick((value) => value + 1)}>
-          Unrelated render
-        </button>
+        <p>Times opened {opened}</p>
+        <button onClick={() => setOpened((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setOpened((value) => value + 1)}>+</button>
         <button onClick={() => setProfile({ name: "Grace" })}> /*focus*/
           Replace state
         </button>
@@ -237,7 +261,7 @@ const batch = sample`
 const staleFixed = sample`
   function StaleCounter() {
     const [count, setCount] = useState(0);
-    const later = useTimers();
+    const later = useTimers(); //useTimers defined off-screen
     return (
       <button
         onClick={() => {
@@ -348,7 +372,7 @@ export const stateLesson: Lesson = {
       id: "mutate",
       label: "Mutate the object",
       tease: "Editing the object does not schedule a render.",
-      tryThis: "Mutate the name, then press Unrelated render.",
+      tryThis: "Mutate the name. Memory turns red and the screen stays Ada. Then increase times opened.",
       code: mutation.text,
       focus: mutation.focus,
       explanation: (
@@ -356,10 +380,11 @@ export const stateLesson: Lesson = {
           <p>
             <code>profile</code> is the object from the last render.{" "}
             <code>profile.name = "Grace"</code> edits that object and does not ask for
-            a new render, so the stage keeps painting Ada.
+            a new render. Memory says Grace, in red, on that click. The screen keeps
+            painting Ada.
           </p>
           <p>
-            Unrelated render calls <code>setTick</code>. React renders again, reads{" "}
+            Increasing times opened calls <code>setOpened</code>. React renders again, reads{" "}
             <code>profile.name</code>, and now the screen says Grace. You never passed
             a new object to <code>setProfile</code>. The mutation was sitting in the
             old object. The next render noticed.

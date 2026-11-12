@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { RenderMark } from "../workbench/bits.tsx";
@@ -55,12 +55,22 @@ function RefDuringRender({ repaired }: { repaired: boolean }) {
   const clicks = useRef(0);
   const [shown, setShown] = useState(0);
   const [other, setOther] = useState(0);
+  const held = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const node = held.current;
+    if (!node || repaired) return;
+    node.textContent = `Ref holds ${clicks.current}`;
+    node.className = "readout";
+  });
   return (
     <div className="widget stack">
       <RenderMark name="panel" />
       <p className="readout">
         Painted from the {repaired ? "state" : "ref"}{" "}
         <strong data-testid="painted">{repaired ? shown : clicks.current}</strong>
+      </p>
+      <p className="readout" ref={held}>
+        Ref holds {repaired ? shown : clicks.current}
       </p>
       <p className="hint">Other renders: {other}</p>
       <div className="row">
@@ -72,6 +82,10 @@ function RefDuringRender({ repaired }: { repaired: boolean }) {
               return;
             }
             clicks.current += 1;
+            const node = held.current;
+            if (!node) return;
+            node.textContent = `Ref holds ${clicks.current}`;
+            node.className = "toll";
           }}
         >
           Track a click
@@ -123,6 +137,7 @@ const duringCode = sample`
     return (
       <>
         <p>Painted from the ref {clicks.current}</p> /*focus*/
+        <p>Ref holds {clicks.current}</p>
         <p>Other renders: {other}</p>
         <button onClick={() => { clicks.current += 1; }}>Track a click</button>
         <button onClick={() => setOther((value) => value + 1)}>Other render</button>
@@ -138,6 +153,7 @@ const duringFixed = sample`
     return (
       <>
         <p>Painted from the state {shown}</p>
+        <p>Ref holds {shown}</p>
         <p>Other renders: {other}</p>
         <button onClick={() => setShown((value) => value + 1)}>
           Track a click
@@ -216,8 +232,8 @@ export const refsLesson: Lesson = {
         <>
           <p>
             The paragraph reads <code>clicks.current</code> while rendering. Track a
-            click changes the ref and stops there. React has no reason to render, so
-            the paragraph keeps the old number.
+            click changes the ref and turns Ref holds red. React has no reason to
+            render, so the painted number stays put.
           </p>
           <p>
             Other render updates unrelated state. That render reads the ref, and the

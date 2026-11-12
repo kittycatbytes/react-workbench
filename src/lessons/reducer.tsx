@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useReducer, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
-import { RenderMark } from "../workbench/bits.tsx";
+import { CountStepper, RenderMark } from "../workbench/bits.tsx";
 import { JsApi } from "../workbench/JsApi.tsx";
 
 type Track = { id: number; label: string; done: boolean };
@@ -134,7 +134,7 @@ function PurePlaylist() {
 
 function MutatingPlaylist({ repaired }: { repaired: boolean }) {
   const [state, dispatch] = useReducer(repaired ? pureReducer : mutatingReducer, null, freshState);
-  const [tick, setTick] = useState(0);
+  const [played, setPlayed] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="widget stack">
@@ -153,9 +153,7 @@ function MutatingPlaylist({ repaired }: { repaired: boolean }) {
           Add
         </button>
         {repaired ? null : (
-          <button type="button" className="ghost" onClick={() => setTick((value) => value + 1)}>
-            Render anyway ({tick})
-          </button>
+          <CountStepper label="Times played" value={played} onChange={setPlayed} />
         )}
       </div>
       <TrackList items={state.items} onToggle={(id) => dispatch({ type: "toggle", id })} />
@@ -251,7 +249,7 @@ const pureCode = sample`
   function Playlist() {
     return (
       <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
         <button onClick={() => dispatch({ type: "clear-done" })}>Clear finished</button>
       </>
     );
@@ -273,8 +271,10 @@ const mutateCode = sample`
   function Playlist() {
     return (
       <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
-        <button onClick={() => setTick((value) => value + 1)}>Render anyway</button>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
+        <p>Times played {played}</p> //played defined off-screen
+        <button onClick={() => setPlayed((value) => Math.max(1, value - 1))}>-</button> //setPlayed defined off-screen
+        <button onClick={() => setPlayed((value) => value + 1)}>+</button>
         <p>Add and toggle look frozen until something else renders.</p>
       </>
     );
@@ -297,7 +297,7 @@ const mutateFixed = sample`
   function Playlist() {
     return (
       <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
         <p>The reducer returns a new list, so Add paints the track.</p>
       </>
     );
@@ -309,14 +309,14 @@ const impureCode = sample`
 
   function impureReducer(state, action) {
     sideEffects.push(action.type); /*focus*/
-    return pureReducer(state, action);
+    return pureReducer(state, action); //pureReducer defined off-screen
   }
 
   function ImpurePlaylist() {
-    const [state, dispatch] = useReducer(impureReducer, initialState);
+    const [state, dispatch] = useReducer(impureReducer, initialState); //initialState defined off-screen
     return (
       <StrictMode>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //label defined off-screen
         <p>Tracks {state.items.length}. External log {sideEffects.length}.</p>
       </StrictMode>
     );
@@ -325,13 +325,13 @@ const impureCode = sample`
 
 const impureFixed = sample`
   function ImpurePlaylist() {
-    const [state, dispatch] = useReducer(pureReducer, initialState);
+    const [state, dispatch] = useReducer(pureReducer, initialState); //pureReducer and initialState defined off-screen
     return (
       <StrictMode>
         <button
           onClick={() => {
-            sideEffects.push("add"); /*focus*/
-            dispatch({ type: "add", label });
+            sideEffects.push("add"); //sideEffects defined off-screen /*focus*/
+            dispatch({ type: "add", label }); //label defined off-screen
           }}
         >
           Add
@@ -382,7 +382,7 @@ export const reducerLesson: Lesson = {
       id: "mutate",
       label: "Return the same object",
       tease: "Pushing into the array and returning it skips the render.",
-      tryThis: "Add a track. The list stays put. Then press Render anyway.",
+      tryThis: "Add a track. The list stays put. Then increase times played.",
       code: mutateCode.text,
       focus: mutateCode.focus,
       explanation: (
@@ -395,8 +395,8 @@ export const reducerLesson: Lesson = {
           </p>
           <p>
             The input is cleared by writing to the DOM node, not by setting state, so
-            that clear does not accidentally render the smuggled track. Press Render
-            anyway. The component reads <code>state.items</code>, which was mutated,
+            that clear does not accidentally render the smuggled track. Increase times
+            played. The component reads <code>state.items</code>, which was mutated,
             and the hidden track appears.
           </p>
           <p>The reducer lied about what changed. A later render told on it.</p>

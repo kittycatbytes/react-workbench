@@ -2,6 +2,7 @@ import { useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import { JsApi } from "../workbench/JsApi.tsx";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
+import { CountStepper } from "../workbench/bits.tsx";
 
 type Row = { id: string; name: string; color: string };
 
@@ -33,15 +34,15 @@ function RowEditor({ row }: { row: Row }) {
 }
 
 function ListControls({
-  tick,
+  views,
   onReverse,
   onRotate,
-  onNudge,
+  onViews,
 }: {
-  tick: number;
+  views: number;
   onReverse: () => void;
   onRotate: () => void;
-  onNudge: () => void;
+  onViews: (next: number) => void;
 }) {
   return (
     <div className="row">
@@ -51,25 +52,23 @@ function ListControls({
       <button type="button" onClick={onRotate}>
         Move first to end
       </button>
-      <button type="button" className="ghost" onClick={onNudge}>
-        Nudge parent ({tick})
-      </button>
+      <CountStepper label="Times viewed" value={views} onChange={onViews} />
     </div>
   );
 }
 
 function useRows() {
   const [rows, setRows] = useState(copySeed);
-  const [tick, setTick] = useState(0);
+  const [views, setViews] = useState(1);
   return {
     rows,
-    tick,
+    views,
     reverse: () => setRows((current) => [...current].reverse()),
     rotate: () =>
       setRows((current) =>
         current.length === 0 ? current : [...current.slice(1), current[0]],
       ),
-    nudge: () => setTick((current) => current + 1),
+    setViews,
   };
 }
 
@@ -78,10 +77,10 @@ function StableKeys() {
   return (
     <div className="widget stack">
       <ListControls
-        tick={list.tick}
+        views={list.views}
         onReverse={list.reverse}
         onRotate={list.rotate}
-        onNudge={list.nudge}
+        onViews={list.setViews}
       />
       {list.rows.map((row) => (
         <RowEditor key={row.id} row={row} />
@@ -95,10 +94,10 @@ function IndexKeys({ repaired }: { repaired: boolean }) {
   return (
     <div className="widget stack">
       <ListControls
-        tick={list.tick}
+        views={list.views}
         onReverse={list.reverse}
         onRotate={list.rotate}
-        onNudge={list.nudge}
+        onViews={list.setViews}
       />
       {list.rows.map((row, index) => (
         <RowEditor key={repaired ? row.id : index} row={row} />
@@ -112,10 +111,10 @@ function RandomKeys({ repaired }: { repaired: boolean }) {
   return (
     <div className="widget stack">
       <ListControls
-        tick={list.tick}
+        views={list.views}
         onReverse={list.reverse}
         onRotate={list.rotate}
-        onNudge={list.nudge}
+        onViews={list.setViews}
       />
       {list.rows.map((row) => (
         <RowEditor key={repaired ? row.id : Math.random()} row={row} />
@@ -126,33 +125,39 @@ function RandomKeys({ repaired }: { repaired: boolean }) {
 
 const stableCode = sample`
   <>
-    <button onClick={reverse}>Reverse</button>
-    <button onClick={rotate}>Move first to end</button>
-    <button onClick={nudge}>Nudge parent ({tick})</button>
-    {rows.map((row) => (
-      <RowEditor key={row.id} row={row} />
+    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
+    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
+    <p>Times viewed {views}</p> //views defined off-screen
+    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
+    <button onClick={() => setViews((value) => value + 1)}>+</button>
+    {rows.map((row) => ( //rows defined off-screen
+      <RowEditor key={row.id} row={row} /> //RowEditor defined off-screen /*focus*/
     ))}
   </>
 `;
 
 const indexCode = sample`
   <>
-    <button onClick={reverse}>Reverse</button>
-    <button onClick={rotate}>Move first to end</button>
-    <button onClick={nudge}>Nudge parent ({tick})</button>
-    {rows.map((row, index) => (
-      <RowEditor key={index} row={row} />
+    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
+    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
+    <p>Times viewed {views}</p> //views defined off-screen
+    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
+    <button onClick={() => setViews((value) => value + 1)}>+</button>
+    {rows.map((row, index) => ( //rows defined off-screen
+      <RowEditor key={index} row={row} /> //RowEditor defined off-screen /*focus*/
     ))}
   </>
 `;
 
 const randomCode = sample`
   <>
-    <button onClick={reverse}>Reverse</button>
-    <button onClick={rotate}>Move first to end</button>
-    <button onClick={nudge}>Nudge parent ({tick})</button>
-    {rows.map((row) => (
-      <RowEditor key={Math.random()} row={row} />
+    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
+    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
+    <p>Times viewed {views}</p> //views defined off-screen
+    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
+    <button onClick={() => setViews((value) => value + 1)}>+</button>
+    {rows.map((row) => ( //rows defined off-screen
+      <RowEditor key={Math.random()} row={row} /> //RowEditor defined off-screen /*focus*/
     ))}
   </>
 `;
@@ -176,7 +181,7 @@ export const keysLesson: Lesson = {
       tease: "The typed text stays with the named row.",
       tryThis: "Type in a row, then reverse the list.",
       code: stableCode.text,
-      focus: [2],
+      focus: stableCode.focus,
       explanation: (
         <>
           <p>
@@ -187,8 +192,8 @@ export const keysLesson: Lesson = {
           </p>
           <p>
             Reverse the list, then move the first row to the end. The text moves with
-            the label. Nudge parent only re-renders the list. The keys are unchanged,
-            so the text stays.
+            the label. Changing times viewed only re-renders the list. The keys are
+            unchanged, so the text stays.
           </p>
         </>
       ),
@@ -199,7 +204,7 @@ export const keysLesson: Lesson = {
       tease: "The text sticks to the slot. The label moves without it.",
       tryThis: "Type in the top row, then reverse the list.",
       code: indexCode.text,
-      focus: [2],
+      focus: indexCode.focus,
       explanation: (
         <>
           <p>
@@ -210,8 +215,8 @@ export const keysLesson: Lesson = {
           </p>
           <p>
             The labels swap. The text stays in the slot. That is the bug index keys
-            create when a list can reorder, insert at the front, or filter. Nudge
-            parent does not reorder, so the text survives that one.
+            create when a list can reorder, insert at the front, or filter. Changing
+            times viewed does not reorder, so the text survives that one.
           </p>
         </>
       ),
@@ -238,9 +243,9 @@ export const keysLesson: Lesson = {
       id: "random",
       label: "A new key every render",
       tease: "Any parent render throws the inputs away.",
-      tryThis: "Type in a row, then nudge the parent. The order does not change.",
+      tryThis: "Type in a row, then change times viewed. The order does not change.",
       code: randomCode.text,
-      focus: [2],
+      focus: randomCode.focus,
       explanation: (
         <>
           <p>
@@ -249,8 +254,8 @@ export const keysLesson: Lesson = {
             inputs and mounts new ones, and the text is gone.
           </p>
           <p>
-            Nudge parent only increments a counter. The order does not change, and
-            the inputs still wipe, because the keys did. Typing inside a row does not
+            Changing times viewed only updates a counter. The order does not change,
+            and the inputs still wipe, because the keys did. Typing inside a row does not
             do this. That state update is in the row, so the parent does not render
             and the keys stay until the parent renders.
           </p>
@@ -259,12 +264,12 @@ export const keysLesson: Lesson = {
       repair: {
         code: stableCode.text,
         focus: stableCode.focus,
-        tryThis: "Type in a row, then nudge the parent.",
+        tryThis: "Type in a row, then change times viewed.",
         explanation: (
           <>
             <p>
               <code>key={"row.id"}</code> is the same value on the next parent render.
-              React reuses the inputs. Nudge the parent and the text you typed is
+              React reuses the inputs. Change times viewed and the text you typed is
               still there.
             </p>
             <p>

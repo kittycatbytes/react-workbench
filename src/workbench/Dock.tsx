@@ -538,7 +538,6 @@ export function Dock({
             <legend className="sr-only">Scenarios</legend>
             {scenarios.map((item) => {
               const active = item.id === scenarioId;
-              const fixed = active && repaired;
               return (
                 <div
                   key={item.id}
@@ -560,12 +559,25 @@ export function Dock({
                   </label>
                   {item.repair ? (
                     <div className="repair" role="group" aria-label={`${item.label} version`}>
-                      <button type="button" aria-pressed={!fixed} onClick={() => onRepair(item.id, false)}>
-                        Broken
-                      </button>
-                      <button type="button" aria-pressed={fixed} onClick={() => onRepair(item.id, true)}>
-                        Fixed
-                      </button>
+                      {(item.fixedFirst
+                        ? [
+                            { label: "Fixed", pressed: !active || repaired, next: true },
+                            { label: "Broken", pressed: active && !repaired, next: false },
+                          ]
+                        : [
+                            { label: "Broken", pressed: !(active && repaired), next: false },
+                            { label: "Fixed", pressed: active && repaired, next: true },
+                          ]
+                      ).map((choice) => (
+                        <button
+                          key={choice.label}
+                          type="button"
+                          aria-pressed={choice.pressed}
+                          onClick={() => onRepair(item.id, choice.next)}
+                        >
+                          {choice.label}
+                        </button>
+                      ))}
                     </div>
                   ) : null}
                 </div>

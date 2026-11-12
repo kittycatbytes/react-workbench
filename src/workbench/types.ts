@@ -16,6 +16,8 @@ export type Scenario = {
   focus: number[];
   explanation: ReactNode;
   repair?: Repair;
+  /** Show Fixed on the left, selected until Broken is chosen. */
+  fixedFirst?: boolean;
 };
 
 export type DemoProps = {

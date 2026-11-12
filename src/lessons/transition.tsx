@@ -113,8 +113,8 @@ const transitionCode = sample`
   }
 
   const SlowList = memo(function SlowList({ query }) {
-    stall(40);
-    const matches = names.filter((name) => name.toLowerCase().includes(query.toLowerCase()));
+    stall(40); //stall defined off-screen
+    const matches = names.filter((name) => name.toLowerCase().includes(query.toLowerCase())); //names defined off-screen
     return <p>{matches.length} matches</p>;
   });
 `;
@@ -126,8 +126,8 @@ const blockingCode = sample`
       <>
         <input value={text} onChange={(event) => setText(event.target.value)} />
         <p>The input waits on the list.</p>
-        <SlowList query={text} />
-        <p>{matches.length} matches</p>
+        <SlowList query={text} /> //SlowList defined off-screen
+        <p>{matches.length} matches</p> //matches defined off-screen
       </>
     );
   }
@@ -141,7 +141,7 @@ const deferredCode = sample`
     return (
       <>
         <input value={text} onChange={(event) => setText(event.target.value)} />
-        <SlowList query={deferred} />
+        <SlowList query={deferred} /> //SlowList defined off-screen
         <p>{stale ? "List is behind the input." : "List matches the input."}</p>
       </>
     );

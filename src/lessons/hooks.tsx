@@ -141,7 +141,7 @@ const customCode = sample`
 
 const twoCode = sample`
   function TwoLamps() {
-    const [left, toggleLeft] = useToggle(false);
+    const [left, toggleLeft] = useToggle(false); //useToggle defined off-screen
     const [right, toggleRight] = useToggle(true);
     return (
       <>

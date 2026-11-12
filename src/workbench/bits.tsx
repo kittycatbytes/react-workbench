@@ -15,6 +15,33 @@ export function useClearLeakedIntervals() {
   }, []);
 }
 
+export function CountStepper({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div className="stepper">
+      <span>{label}</span>
+      <button
+        type="button"
+        aria-label={`Decrease ${label}`}
+        onClick={() => onChange(Math.max(1, value - 1))}
+      >
+        -
+      </button>
+      <strong>{value}</strong>
+      <button type="button" aria-label={`Increase ${label}`} onClick={() => onChange(value + 1)}>
+        +
+      </button>
+    </div>
+  );
+}
+
 export function RenderMark({ name, label = name }: { name: string; label?: string }) {
   const count = useRef(0);
   count.current += 1;

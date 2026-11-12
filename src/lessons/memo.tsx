@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
-import { RenderMark } from "../workbench/bits.tsx";
+import { CountStepper, RenderMark } from "../workbench/bits.tsx";
 import { JsApi } from "../workbench/JsApi.tsx";
 
 const cities = ["Austin", "Boston", "Cairo", "Dakar", "Oslo", "Ottawa", "Paris", "Quito"];
@@ -123,7 +123,7 @@ function Library({ mode }: { mode: "stable" | "inline" | "bare" }) {
 
 function MemoFilter() {
   const [query, setQuery] = useState("");
-  const [tick, setTick] = useState(0);
+  const [visits, setVisits] = useState(1);
   const runs = useRefRuns();
   const shown = useMemo(() => {
     runs.current += 1;
@@ -132,29 +132,29 @@ function MemoFilter() {
   return (
     <FilterBody
       query={query}
-      tick={tick}
+      visits={visits}
       runs={runs.current}
       shown={shown}
       onQuery={setQuery}
-      onTick={() => setTick((value) => value + 1)}
+      onVisits={setVisits}
     />
   );
 }
 
 function PlainFilter() {
   const [query, setQuery] = useState("");
-  const [tick, setTick] = useState(0);
+  const [visits, setVisits] = useState(1);
   const runs = useRefRuns();
   runs.current += 1;
   const shown = cities.filter((city) => city.toLowerCase().includes(query.toLowerCase()));
   return (
     <FilterBody
       query={query}
-      tick={tick}
+      visits={visits}
       runs={runs.current}
       shown={shown}
       onQuery={setQuery}
-      onTick={() => setTick((value) => value + 1)}
+      onVisits={setVisits}
     />
   );
 }
@@ -166,18 +166,18 @@ function useRefRuns() {
 
 function FilterBody({
   query,
-  tick,
+  visits,
   runs,
   shown,
   onQuery,
-  onTick,
+  onVisits,
 }: {
   query: string;
-  tick: number;
+  visits: number;
   runs: number;
   shown: string[];
   onQuery: (value: string) => void;
-  onTick: () => void;
+  onVisits: (next: number) => void;
 }) {
   return (
     <div className="widget stack">
@@ -190,14 +190,12 @@ function FilterBody({
           placeholder="Filter cities"
           onChange={(event) => onQuery(event.target.value)}
         />
-        <button type="button" className="ghost" onClick={onTick}>
-          Tick parent ({tick})
-        </button>
+        <CountStepper label="Times visited" value={visits} onChange={onVisits} />
       </div>
       <p className="readout">
         Filter ran <strong data-testid="runs">{runs}</strong> time{runs === 1 ? "" : "s"}
       </p>
-      <p className="hint">This list should not be filtered again when you tick the parent.</p>
+      <p className="hint">This list should not be filtered again when the times visited change.</p>
       <ul className="matches">
         {shown.map((city) => (
           <li key={city}>{city}</li>
@@ -265,7 +263,7 @@ const stableCode = sample`
             onSelect={onSelect}
           />
         ))}
-        <button>Compress Item</button>
+        <button>Compress Item</button> // non-functional, shelled element for demo purposes only
       </>
     );
   }
@@ -326,7 +324,7 @@ const inlineCode = sample`
             onSelect={() => setSelectedId((current) => (current === file.id ? null : file.id))} /*focus*/
           />
         ))}
-        <button>Compress Item</button>
+        <button>Compress Item</button> // non-functional, shelled element for demo purposes only
       </>
     );
   }
@@ -390,7 +388,7 @@ const bareCode = sample`
             onSelect={onSelect}
           />
         ))}
-        <button>Compress Item</button>
+        <button>Compress Item</button> // non-functional, shelled element for demo purposes only
       </>
     );
   }
@@ -398,17 +396,24 @@ const bareCode = sample`
 const memoFilterCode = sample`
   function MemoFilter() {
     const [query, setQuery] = useState("");
-    const [tick, setTick] = useState(0);
+    const [visits, setVisits] = useState(1);
     const runs = 1;
     const shown = useMemo(() => { /*focus*/
-      return cities.filter((city) => city.toLowerCase().includes(query.toLowerCase()));
+      return cities.filter((city) => city.toLowerCase().includes(query.toLowerCase())); //cities defined off-screen
     }, [query]); /*focus*/
     return (
       <>
         <input value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button onClick={() => setTick((value) => value + 1)}>Tick parent</button>
+        <p>Times visited {visits}</p>
+        <button onClick={() => setVisits((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setVisits((value) => value + 1)}>+</button>
         <p>Filter ran {runs} time</p>
-        <p>This list should not be filtered again when you tick the parent.</p>
+        <p>This list should not be filtered again when the times visited change.</p>
+        <ul>
+          {shown.map((city) => (
+            <li key={city}>{city}</li>
+          ))}
+        </ul>
       </>
     );
   }
@@ -417,17 +422,24 @@ const memoFilterCode = sample`
 const plainFilterCode = sample`
   function PlainFilter() {
     const [query, setQuery] = useState("");
+    const [visits, setVisits] = useState(1);
+    const runs = 1;
     const shown = cities.filter((city) => /*focus*/
       city.toLowerCase().includes(query.toLowerCase())
-    );
-    const [tick, setTick] = useState(0);
-    const runs = 1;
+    ); //cities defined off-screen
     return (
       <>
         <input value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button onClick={() => setTick((value) => value + 1)}>Tick parent</button>
+        <p>Times visited {visits}</p>
+        <button onClick={() => setVisits((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setVisits((value) => value + 1)}>+</button>
         <p>Filter ran {runs} time</p>
-        <p>This list should not be filtered again when you tick the parent.</p>
+        <p>This list should not be filtered again when the times visited change.</p>
+        <ul>
+          {shown.map((city) => (
+            <li key={city}>{city}</li>
+          ))}
+        </ul>
       </>
     );
   }
@@ -436,8 +448,7 @@ const plainFilterCode = sample`
 export function MemoDemo({ scenarioId, repaired }: DemoProps) {
   if (scenarioId === "inline") return <Library mode={repaired ? "stable" : "inline"} />;
   if (scenarioId === "bare") return <Library mode={repaired ? "stable" : "bare"} />;
-  if (scenarioId === "usememo") return <MemoFilter />;
-  if (scenarioId === "plain") return <PlainFilter />;
+  if (scenarioId === "usememo") return repaired ? <MemoFilter /> : <PlainFilter />;
   return <Library mode="stable" />;
 }
 
@@ -498,7 +509,17 @@ export const memoLesson: Lesson = {
             fails, so <code>memo</code> gives up. Each file that stayed renders again.
             The status remounts, prints Checking status..., then Deselected. The checks
             stay grey, because the selection did not change. That is the toll of
-            clicking through the groups.
+            clicking through the groups. A row that stays keeps its render count, and
+            that count climbs.
+          </p>
+          <p>
+            A row that leaves does not keep its count. Press Image after Doc. Doc #1
+            and Doc #2 are no longer in the list, so React unmounts them. The number
+            lives in a ref on that row. Unmounting throws the row away, ref included.
+            Press All and those two mount as new rows, each starting at render 1.
+            Image #3 was on screen the whole time, so its count does not go back to 1.
+            A reset means the row was gone and came back. The new function is what
+            makes a row that stayed climb. It is not what starts a returning row at 1.
           </p>
           <p>
             Pressing the check still selects the file you clicked, and a second press
@@ -518,6 +539,12 @@ export const memoLesson: Lesson = {
               that stays in the list has the same <code>selected</code> value. Those
               props pass <JsApi name="Object.is" n={1} />. The parent count climbs. The
               file does not recheck.
+            </p>
+            <p>
+              A file that the group removes still comes back at render 1. React
+              unmounted that row, so the ref that held the count is gone. The fix
+              changes whether a row that stayed has to render. It does not keep a
+              removed row's count.
             </p>
             <p>
               The broken version passed a new arrow on every group click, so{" "}
@@ -573,39 +600,16 @@ export const memoLesson: Lesson = {
       id: "usememo",
       label: "useMemo",
       tease: "The filter runs again only when the query changes.",
-      tryThis: "Tick the parent, then change the query.",
-      code: memoFilterCode.text,
-      focus: memoFilterCode.focus,
-      explanation: (
-        <>
-          <p>
-            The filter sits inside <code>useMemo</code>. Tick parent renders this
-            component again and does not change <code>query</code>. React keeps the
-            previous list, so the "filter ran" count stays. That is the line under the
-            list: the list should not be filtered again for a parent tick. Change the
-            query and the count moves, because that dependency changed.
-          </p>
-          <p>
-            <code>useMemo</code> is a hint. React may throw the cache away. Don't put
-            a required side effect in there. The count on this stage is a measurement,
-            not something the filter needs in order to be correct.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "plain",
-      label: "Filter in the body",
-      tease: "Every render filters again, including a tick that ignores the query.",
-      tryThis: "Tick the parent and watch the calc count.",
+      fixedFirst: true,
+      tryThis: "Increase times visited and watch the calc count.",
       code: plainFilterCode.text,
       focus: plainFilterCode.focus,
       explanation: (
         <>
           <p>
-            The filter runs in the component body. Tick parent climbs the count even
-            though the query is the same. The line under the list says what you wanted.
-            This version filters again anyway.
+            The filter runs in the component body. Changing times visited climbs the
+            count even though the query is the same. The line under the list says what
+            you wanted. This version filters again anyway.
           </p>
           <p>
             For eight cities this work is cheap. The count is there so you can see the
@@ -613,6 +617,28 @@ export const memoLesson: Lesson = {
           </p>
         </>
       ),
+      repair: {
+        code: memoFilterCode.text,
+        focus: memoFilterCode.focus,
+        tryThis: "Increase times visited, then change the query.",
+        explanation: (
+          <>
+            <p>
+              The filter sits inside <code>useMemo</code>. Changing times visited
+              renders this component again and does not change <code>query</code>. React
+              keeps the previous list, so the "filter ran" count stays. That is the line
+              under the list: the list should not be filtered again when the times
+              visited change. Change the query and the count moves, because that
+              dependency changed.
+            </p>
+            <p>
+              <code>useMemo</code> is a hint. React may throw the cache away. Don't put
+              a required side effect in there. The count on this stage is a measurement,
+              not something the filter needs in order to be correct.
+            </p>
+          </>
+        ),
+      },
     },
   ],
 };

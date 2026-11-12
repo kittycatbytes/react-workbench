@@ -114,7 +114,7 @@ function StaleCapture({ repaired }: { repaired: boolean }) {
       <p className="readout">
         Live count <strong data-testid="live">{count}</strong>
       </p>
-      <p className="readout">
+      <p className={captured === count ? "readout" : "toll"}>
         Captured in the effect <strong data-testid="captured">{captured}</strong>
       </p>
       <button type="button" onClick={() => setCount((value) => value + 1)}>
@@ -355,7 +355,7 @@ const cleanupCode = sample`
   function Ticker({ onLog }) {
     const [ticks, setTicks] = useState(0);
     useEffect(() => {
-      onLog("effect: subscribed"); /*focus*/
+      onLog("effect: subscribed"); //onLog defined off-screen /*focus*/
       const id = setInterval(() => setTicks((value) => value + 1), 1000);
       return () => {
         clearInterval(id); /*focus*/
@@ -378,7 +378,7 @@ const cleanupCode = sample`
 const classCode = sample`
   class Clock extends Component {
     componentDidMount() {
-      this.props.onLog("componentDidMount"); /*focus*/
+      this.props.onLog("componentDidMount"); //onLog defined off-screen /*focus*/
       this.intervalId = setInterval(() => {
         this.setState((state) => ({ ticks: state.ticks + 1 }));
       }, 1000);
@@ -433,12 +433,12 @@ const staleCode = sample`
 const leakCode = sample`
   function LeakyTicker({ onLog }) {
     useEffect(() => {
-      onLog("interval started");
+      onLog("interval started"); //onLog defined off-screen
       const id = setInterval(() => onLog("tick"), 800);
-      rememberInterval(id); /*focus*/
+      rememberInterval(id); //rememberInterval defined off-screen /*focus*/
       // no cleanup function
     }, [onLog]);
-    return <p>Interval {label} is running.</p>;
+    return <p>Interval {label} is running.</p>; //label defined off-screen
   }
 
   function LeakScene() {
@@ -479,11 +479,11 @@ const layoutCode = sample`
   function NotesThread() {
     const scroller = useRef(null);
     const before = useRef(0);
-    const [notes, setNotes] = useState(latest);
+    const [notes, setNotes] = useState(latest); //latest defined off-screen
 
     function loadOlder() {
       before.current = scroller.current.scrollHeight; /*focus*/
-      setNotes((current) => [...older, ...current]);
+      setNotes((current) => [...older, ...current]); //older defined off-screen
     }
 
     useLayoutEffect(() => {
@@ -507,11 +507,11 @@ const passiveCode = sample`
   function NotesThread() {
     const scroller = useRef(null);
     const before = useRef(0);
-    const [notes, setNotes] = useState(latest);
+    const [notes, setNotes] = useState(latest); //latest defined off-screen
 
     function loadOlder() {
       before.current = scroller.current.scrollHeight;
-      setNotes((current) => [...older, ...current]);
+      setNotes((current) => [...older, ...current]); //older defined off-screen
     }
 
     useEffect(() => {
@@ -576,14 +576,14 @@ const staleFixed = sample`
 const leakFixed = sample`
   function LeakyTicker({ onLog }) {
     useEffect(() => {
-      onLog("interval started");
+      onLog("interval started"); //onLog defined off-screen
       const id = setInterval(() => onLog("tick"), 800);
       return () => { /*focus*/
         clearInterval(id); /*focus*/
         onLog("cleanup: unsubscribed");
       };
     }, [onLog]);
-    return <p>Interval {label} is running.</p>;
+    return <p>Interval {label} is running.</p>; //label defined off-screen
   }
 
   function LeakScene() {

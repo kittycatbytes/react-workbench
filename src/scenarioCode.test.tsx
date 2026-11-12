@@ -74,6 +74,59 @@ function missingPhrases(root: HTMLElement, code: string) {
   return displayedPhrases(root, literals).filter((phrase) => !containsSequence(covered, phrase));
 }
 
+// Buttons, their labels, and stepper names, in the order a person sees them.
+// The text test only asks that each phrase occur somewhere, so two controls
+// can trade places in the sample and still pass.
+const CONTROLS = "button, .stepper > span, label";
+
+function elementPhrase(element: Element, literals: string[]) {
+  const parts: string[] = [];
+  for (const child of element.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      parts.push(child.textContent ?? "");
+      continue;
+    }
+    if (child instanceof Element && isValueElement(child, literals)) parts.push(" ");
+  }
+  return phraseWords(parts.join(" "), literals);
+}
+
+function controlPhrases(root: HTMLElement, literals: string[]) {
+  const phrases: string[][] = [];
+  for (const node of root.querySelectorAll(CONTROLS)) {
+    if (node.closest(SKIP)) continue;
+    const phrase = elementPhrase(node, literals);
+    if (phrase.length > 0) phrases.push(phrase);
+  }
+  return phrases;
+}
+
+function misorderedControls(root: HTMLElement, code: string) {
+  const literals = quotedLiterals(code);
+  const covered = words(code);
+  let cursor = 0;
+  const problems: string[] = [];
+  for (const phrase of controlPhrases(root, literals)) {
+    const found = indexOfSequence(covered, phrase, cursor);
+    if (found < 0) {
+      problems.push(phrase.join(" "));
+      continue;
+    }
+    cursor = found;
+  }
+  return problems;
+}
+
+function indexOfSequence(haystack: string[], needle: string[], start: number) {
+  let cursor = start;
+  for (const word of needle) {
+    const found = haystack.indexOf(word, cursor);
+    if (found < 0) return -1;
+    cursor = found + 1;
+  }
+  return cursor;
+}
+
 function containsSequence(haystack: string[], needle: string[]) {
   let cursor = 0;
   for (const word of needle) {
@@ -101,6 +154,12 @@ describe.each(lessons)("$title", (lesson) => {
       expect(missing.join(" | ")).toBe("");
     });
 
+    it("lists controls in the order they appear on the stage", () => {
+      const root = show(lesson.id, scenario, false);
+      const problems = misorderedControls(root, scenario.code);
+      expect(problems.join(" | ")).toBe("");
+    });
+
     const repair = scenario.repair;
     if (!repair) return;
 
@@ -108,6 +167,12 @@ describe.each(lessons)("$title", (lesson) => {
       const root = show(lesson.id, scenario, true);
       const missing = missingPhrases(root, repair.code).map((phrase) => phrase.join(" "));
       expect(missing.join(" | ")).toBe("");
+    });
+
+    it("lists controls in the order they appear on the stage when fixed", () => {
+      const root = show(lesson.id, scenario, true);
+      const problems = misorderedControls(root, repair.code);
+      expect(problems.join(" | ")).toBe("");
     });
   });
 });

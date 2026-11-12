@@ -16,7 +16,7 @@ export default function App() {
   const [lessonId, setLessonId] = useState(readHash);
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const [scenarioId, setScenarioId] = useState(lesson.scenarios[0].id);
-  const [repaired, setRepaired] = useState(false);
+  const [repaired, setRepaired] = useState(Boolean(lesson.scenarios[0].fixedFirst));
   const [generation, setGeneration] = useState(0);
   const [open, setOpen] = useState<Record<PanelKey, boolean>>({
     code: true,
@@ -56,7 +56,9 @@ export default function App() {
         restore != null && next.scenarios.some((item) => item.id === restore.scenarioId);
       setLessonId(next.id);
       setScenarioId(scenarioStillThere ? restore.scenarioId : next.scenarios[0].id);
-      setRepaired(scenarioStillThere ? restore.repaired : false);
+      setRepaired(
+        scenarioStillThere ? restore.repaired : Boolean(next.scenarios[0].fixedFirst),
+      );
       setGeneration((value) => value + 1);
     };
     window.addEventListener("hashchange", sync);
@@ -240,8 +242,9 @@ export default function App() {
                 : { label: "← Previous Lesson", onClick: goPrevious }
           }
           onScenario={(id) => {
+            const next = lesson.scenarios.find((item) => item.id === id);
             setScenarioId(id);
-            setRepaired(false);
+            setRepaired(Boolean(next?.fixedFirst));
             setGeneration((value) => value + 1);
           }}
           onRepair={(id, next) => {
@@ -252,7 +255,7 @@ export default function App() {
           onResetScenario={() => setGeneration((value) => value + 1)}
           onReset={() => {
             setScenarioId(lesson.scenarios[0].id);
-            setRepaired(false);
+            setRepaired(Boolean(lesson.scenarios[0].fixedFirst));
             setGeneration((value) => value + 1);
           }}
         />

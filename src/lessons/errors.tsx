@@ -140,7 +140,7 @@ const eventCode = sample`
     return (
       <>
         <p>Window error: {windowMessage}</p>
-        <CatchBoundary>
+        <CatchBoundary> //CatchBoundary defined off-screen
           <button
             onClick={() => {
               throw new Error("Click handler failed.");

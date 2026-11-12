@@ -170,8 +170,8 @@ const missingCode = sample`
   function NoBoundaryStage() {
     const [Chart, setChart] = useState(null);
     return (
-      <CatchBoundary>
-        <button onClick={() => setChart(() => lazy(loadHeavyChart))}> /*focus*/
+      <CatchBoundary> //CatchBoundary defined off-screen
+        <button onClick={() => setChart(() => lazy(loadHeavyChart))}> //loadHeavyChart defined off-screen /*focus*/
           Load chart
         </button>
         {Chart ? <Chart /> : <p>Load the chart. There is no Suspense above it.</p>} /*focus*/
@@ -192,7 +192,7 @@ const failCode = sample`
   }
 
   function retry() {
-    setChart(() => lazy(loadHeavyChart));
+    setChart(() => lazy(loadHeavyChart)); //setChart and loadHeavyChart defined off-screen
   }
 `;
 
