@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, type ComponentType } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { CatchBoundary } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 import ChartFigure from "./ChartFigure.tsx";
 
 function loadHeavyChart() {
@@ -136,7 +137,14 @@ const splitCode = sample`
       <Suspense fallback={<p>Loading chunk...</p>}>
         <LazyChart />
       </Suspense>
-    ) : null;
+    ) : (
+      <>
+        <button onClick={() => setShow((value) => !value)}>
+          {show ? "Unload chart" : "Load chart"}
+        </button>
+        <p>The chart module is not mounted.</p>
+      </>
+    );
   }
 `;
 
@@ -145,7 +153,16 @@ const eagerCode = sample`
 
   function EagerStage() {
     const [show, setShow] = useState(false);
-    return show ? <ChartFigure /> : null;
+    return show ? (
+      <ChartFigure />
+    ) : (
+      <>
+        <button onClick={() => setShow((value) => !value)}>
+          {show ? "Unload chart" : "Load chart"}
+        </button>
+        <p>The chart is a static import. Nothing to wait for.</p>
+      </>
+    );
   }
 `;
 
@@ -157,7 +174,7 @@ const missingCode = sample`
         <button onClick={() => setChart(() => lazy(loadHeavyChart))}> /*focus*/
           Load chart
         </button>
-        {Chart ? <Chart /> : null} /*focus*/
+        {Chart ? <Chart /> : <p>Load the chart. There is no Suspense above it.</p>} /*focus*/
       </CatchBoundary>
     );
   }
@@ -165,6 +182,14 @@ const missingCode = sample`
 
 const failCode = sample`
   const Broken = lazy(() => Promise.reject(new Error("Chunk failed to load")));
+
+  function FailedStage() {
+    return (
+      <Suspense fallback={<p>Loading chunk...</p>}>
+        <Broken />
+      </Suspense>
+    );
+  }
 
   function retry() {
     setChart(() => lazy(loadHeavyChart));
@@ -195,7 +220,7 @@ export const splitLesson: Lesson = {
       explanation: (
         <>
           <p>
-            <code>lazy</code> takes a function that returns <code>import()</code>. Vite
+            <code>lazy</code> takes a function that returns <JsApi name="import()" n={1} />. Vite
             emits that module as its own file, so the chart is not in the first
             download. The loader also waits 700ms, so the fallback has time to paint
             on a local machine. A real module would skip that timer. The wait you

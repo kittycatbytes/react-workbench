@@ -7,6 +7,7 @@ import {
   useClearLeakedIntervals,
   useStableLog,
 } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 
 let leakSerial = 0;
 
@@ -363,6 +364,15 @@ const cleanupCode = sample`
     }, [onLog]);
     return <p>Ticks {ticks}</p>;
   }
+
+  function CleanupScene() {
+    const [show, setShow] = useState(true);
+    return (
+      <button onClick={() => setShow((value) => !value)}>
+        {show ? "Unmount ticker" : "Mount ticker"}
+      </button>
+    );
+  }
 `;
 
 const classCode = sample`
@@ -386,6 +396,20 @@ const classCode = sample`
       return <p>Ticks {this.state.ticks}</p>;
     }
   }
+
+  function ClassScene() {
+    const [seed, setSeed] = useState(1);
+    const [show, setShow] = useState(true);
+    return (
+      <>
+        <p>Seed {seed}</p>
+        <button onClick={() => setSeed((value) => value + 1)}>Bump seed</button>
+        <button onClick={() => setShow((value) => !value)}>
+          {show ? "Unmount clock" : "Mount clock"}
+        </button>
+      </>
+    );
+  }
 `;
 
 const staleCode = sample`
@@ -400,6 +424,7 @@ const staleCode = sample`
         <p>Live count {count}</p>
         <p>Captured in the effect {captured}</p>
         <button onClick={() => setCount((value) => value + 1)}>Increment</button>
+        <p>The effect lists no dependencies, so it never reads the new count.</p>
       </>
     );
   }
@@ -413,13 +438,23 @@ const leakCode = sample`
       rememberInterval(id); /*focus*/
       // no cleanup function
     }, [onLog]);
+    return <p>Interval {label} is running.</p>;
+  }
+
+  function LeakScene() {
+    const [show, setShow] = useState(true);
+    return (
+      <button onClick={() => setShow((value) => !value)}>
+        {show ? "Unmount ticker" : "Mount ticker"}
+      </button>
+    );
   }
 `;
 
 const strictCode = sample`
-  function CallProbe({ bucket, field }) {
+  function CallProbe({ label, bucket, field }) {
     bucket[field] += 1; /*focus*/
-    return <strong>{bucket[field]}</strong>;
+    return <p>{label} {bucket[field]}</p>;
   }
 
   function StrictScene() {
@@ -431,9 +466,9 @@ const strictCode = sample`
           Render again
         </button>
         <p>Parent renders {generation + 1}</p>
-        <CallProbe bucket={bucket} field="outside" />
+        <CallProbe label="Outside StrictMode" bucket={bucket} field="outside" />
         <StrictMode> /*focus*/
-          <CallProbe bucket={bucket} field="inside" />
+          <CallProbe label="Inside StrictMode" bucket={bucket} field="inside" />
         </StrictMode>
       </>
     );
@@ -462,6 +497,7 @@ const layoutCode = sample`
         <div className="thread" ref={scroller}>
           {notes.map((note) => <p key={note.id}>{note.text}</p>)}
         </div>
+        <p>You are reading the marked note.</p>
       </>
     );
   }
@@ -484,9 +520,13 @@ const passiveCode = sample`
     }, [notes]);
 
     return (
-      <div className="thread" ref={scroller}>
-        {notes.map((note) => <p key={note.id}>{note.text}</p>)}
-      </div>
+      <>
+        <button onClick={loadOlder}>Load older notes</button>
+        <div className="thread" ref={scroller}>
+          {notes.map((note) => <p key={note.id}>{note.text}</p>)}
+        </div>
+        <p>You are reading the marked note.</p>
+      </>
     );
   }
 `;
@@ -505,10 +545,11 @@ const strictFixed = sample`
           Render again
         </button>
         <p>Parent renders {shown}</p>
-        <CallProbe count={shown} />
+        <CallProbe label="Outside StrictMode" count={shown} />
         <StrictMode>
-          <CallProbe count={shown} />
+          <CallProbe label="Inside StrictMode" count={shown} />
         </StrictMode>
+        <p>Both probes display the parent count. Neither one adds during render.</p>
       </>
     );
   }
@@ -526,6 +567,7 @@ const staleFixed = sample`
         <p>Live count {count}</p>
         <p>Captured in the effect {captured}</p>
         <button onClick={() => setCount((value) => value + 1)}>Increment</button>
+        <p>The effect lists count, so the captured number follows the live one.</p>
       </>
     );
   }
@@ -541,6 +583,16 @@ const leakFixed = sample`
         onLog("cleanup: unsubscribed");
       };
     }, [onLog]);
+    return <p>Interval {label} is running.</p>;
+  }
+
+  function LeakScene() {
+    const [show, setShow] = useState(true);
+    return (
+      <button onClick={() => setShow((value) => !value)}>
+        {show ? "Unmount ticker" : "Mount ticker"}
+      </button>
+    );
   }
 `;
 
@@ -773,7 +825,7 @@ export const effectsLesson: Lesson = {
             the browser paints. Load older notes inserts rows above the one you are
             reading. The scroll position is still the old number, so that note would
             slide out of the window. The layout effect adds the height of the new
-            rows to <code>scrollTop</code> before paint, and the marked note stays
+            rows to <JsApi name="scrollTop" n={1} /> before paint, and the marked note stays
             where it was.
           </p>
           <p>

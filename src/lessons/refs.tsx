@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { RenderMark } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 
 function RefDemo() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,11 +91,12 @@ const refCode = sample`
     const [shown, setShown] = useState(0);
     return (
       <>
+        <label>A field the ref can focus</label>
         <input ref={inputRef} />
-        <button onClick={() => inputRef.current?.focus()}>Focus</button> /*focus*/
+        <button onClick={() => inputRef.current?.focus()}>Focus the field</button> /*focus*/
         <button onClick={() => { clicks.current += 1; }}>Track a click</button> /*focus*/
         <button onClick={() => setShown(clicks.current)}>Read the ref</button>
-        <p>{shown}</p>
+        <p>Last read {shown}</p>
       </>
     );
   }
@@ -120,7 +122,8 @@ const duringCode = sample`
     const [other, setOther] = useState(0);
     return (
       <>
-        <p>{clicks.current}</p> /*focus*/
+        <p>Painted from the ref {clicks.current}</p> /*focus*/
+        <p>Other renders: {other}</p>
         <button onClick={() => { clicks.current += 1; }}>Track a click</button>
         <button onClick={() => setOther((value) => value + 1)}>Other render</button>
       </>
@@ -131,12 +134,15 @@ const duringCode = sample`
 const duringFixed = sample`
   function RefDuringRender() {
     const [shown, setShown] = useState(0); /*focus*/
+    const [other, setOther] = useState(0);
     return (
       <>
-        <p>{shown}</p>
+        <p>Painted from the state {shown}</p>
+        <p>Other renders: {other}</p>
         <button onClick={() => setShown((value) => value + 1)}>
           Track a click
         </button>
+        <button onClick={() => setOther((value) => value + 1)}>Other render</button>
       </>
     );
   }
@@ -166,8 +172,8 @@ export const refsLesson: Lesson = {
         <>
           <p>
             The focus button writes to <code>inputRef.current</code> and calls{" "}
-            <code>focus()</code>. That touches the DOM node. It does not call a
-            setState, so the render mark stays put.
+            <JsApi name="focus()" n={1} />. That touches the DOM node. It does not
+            call a setState, so the render mark stays put.
           </p>
           <p>
             Track a click increments <code>clicks.current</code>. A ref is a box that

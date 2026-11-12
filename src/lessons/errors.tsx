@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { CatchBoundary } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 
 function RenderChild({ boom }: { boom: boolean }) {
   if (boom) throw new Error("Render failed in the child.");
@@ -124,18 +125,33 @@ const renderCode = sample`
     if (boom) throw new Error("Render failed in the child.");
     return <p>The child rendered.</p>;
   }
+
+  function RenderScene() {
+    const [boom, setBoom] = useState(false);
+    return (
+      <button onClick={() => setBoom(true)}>Throw during render</button>
+    );
+  }
 `;
 
 const eventCode = sample`
-  <CatchBoundary>
-    <button
-      onClick={() => {
-        throw new Error("Click handler failed.");
-      }}
-    >
-      Throw in the click handler
-    </button>
-  </CatchBoundary>
+  function EventScene() {
+    const [windowMessage, setWindowMessage] = useState("none yet");
+    return (
+      <>
+        <p>Window error: {windowMessage}</p>
+        <CatchBoundary>
+          <button
+            onClick={() => {
+              throw new Error("Click handler failed.");
+            }}
+          >
+            Throw in the click handler
+          </button>
+        </CatchBoundary>
+      </>
+    );
+  }
 `;
 
 const effectCode = sample`
@@ -144,6 +160,18 @@ const effectCode = sample`
       if (arm) throw new Error("Effect failed in the child.");
     }, [arm]);
     return <p>Effect child is mounted.</p>;
+  }
+
+  function EffectScene() {
+    const [windowMessage, setWindowMessage] = useState("none yet");
+    const [arm, setArm] = useState(false);
+    return (
+      <>
+        <p>Window error: {windowMessage}</p>
+        <button onClick={() => setArm(true)}>Throw in the effect</button>
+        <EffectChild arm={arm} />
+      </>
+    );
   }
 `;
 
@@ -198,9 +226,9 @@ export const errorsLesson: Lesson = {
             not replace the button.
           </p>
           <p>
-            The window <code>error</code> listener records the message on the stage.
+            The window <JsApi name="error" n={1} label="Window error event" /> listener records the message on the stage.
             Without that listener, the throw reaches the browser and the stage looks
-            unchanged. A <code>try/catch</code> around the call is how you handle an
+            unchanged. A <JsApi name="try/catch" n={2} /> around the call is how you handle an
             event. The boundary is the wrong tool for it.
           </p>
         </>

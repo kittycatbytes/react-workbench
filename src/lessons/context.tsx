@@ -162,9 +162,18 @@ const stableCode = sample`
 
   function StableContext() {
     const [artist, setArtist] = useState("Ada");
+    const [tick, setTick] = useState(0);
     const value = useMemo(() => ({ artist }), [artist]); /*focus*/
     return (
       <DeskContext.Provider value={value}>
+        <p>Parent ticks {tick}</p>
+        <button onClick={() => setArtist((current) => (current === "Ada" ? "Grace" : "Ada"))}>
+          Swap artist ({artist})
+        </button>
+        <button onClick={() => setTick((current) => current + 1)}>Tick parent</button>
+        <p>Middle</p>
+        <p>Deep</p>
+        <p>Artist {artist}</p>
         <Middle />
       </DeskContext.Provider>
     );
@@ -177,8 +186,15 @@ const unstableCode = sample`
     const [tick, setTick] = useState(0);
     return (
       <DeskContext.Provider value={{ artist }}> /*focus*/
+        <p>Parent ticks {tick}</p>
+        <button onClick={() => setArtist((current) => (current === "Ada" ? "Grace" : "Ada"))}>
+          Swap artist ({artist})
+        </button>
+        <button onClick={() => setTick((value) => value + 1)}>Tick parent</button>
+        <p>Middle</p>
+        <p>Deep</p>
+        <p>Artist {artist}</p>
         <Middle />
-        <button onClick={() => setTick((value) => value + 1)}>{tick}</button>
       </DeskContext.Provider>
     );
   }
@@ -189,7 +205,13 @@ const noneCode = sample`
 
   function NoProvider() {
     return (
-      <Middle />
+      <>
+        <p>Nothing above Deep provides a desk.</p>
+        <p>Middle</p>
+        <p>Deep</p>
+        <p>Artist</p>
+        <Middle />
+      </>
     );
   }
 `;
@@ -201,7 +223,20 @@ const drillCode = sample`
 
   function Drill() {
     const [artist, setArtist] = useState("Ada");
-    return <Middle artist={artist} />; /*focus*/
+    const [tick, setTick] = useState(0);
+    return (
+      <>
+        <p>Parent ticks {tick}</p>
+        <button onClick={() => setArtist((current) => (current === "Ada" ? "Grace" : "Ada"))}>
+          Swap artist ({artist})
+        </button>
+        <button onClick={() => setTick((current) => current + 1)}>Tick parent</button>
+        <p>Middle</p>
+        <p>Deep</p>
+        <p>Artist {artist}</p>
+        <Middle artist={artist} /> /*focus*/
+      </>
+    );
   }
 `;
 

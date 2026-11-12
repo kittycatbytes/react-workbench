@@ -125,7 +125,9 @@ const blockingCode = sample`
     return (
       <>
         <input value={text} onChange={(event) => setText(event.target.value)} />
+        <p>The input waits on the list.</p>
         <SlowList query={text} />
+        <p>{matches.length} matches</p>
       </>
     );
   }

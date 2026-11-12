@@ -15,7 +15,7 @@ export function useClearLeakedIntervals() {
   }, []);
 }
 
-export function RenderMark({ name }: { name: string }) {
+export function RenderMark({ name, label = name }: { name: string; label?: string }) {
   const count = useRef(0);
   count.current += 1;
   const renders = count.current;
@@ -26,7 +26,7 @@ export function RenderMark({ name }: { name: string }) {
       data-renders={renders}
       key={renders}
     >
-      {name} · render {renders}
+      {label ? `${label} · render ${renders}` : `render ${renders}`}
     </span>
   );
 }
@@ -122,7 +122,7 @@ export function useConsoleLines() {
 
 export function WarningList({ lines }: { lines: string[] }) {
   if (lines.length === 0) {
-    return <p className="hint">No console warning yet.</p>;
+    return <p className="hint chrome">No console warning yet.</p>;
   }
   return (
     <ul className="warnings" data-testid="warnings">
@@ -174,7 +174,7 @@ export class CatchBoundary extends Component<BoundaryProps, BoundaryState> {
             </button>
           ) : (
             <p className="caught-hint">
-              Reset stage, in the What if panel, mounts this widget again.
+              Reset lesson, at the bottom of the panels, mounts this widget again.
             </p>
           )}
         </div>

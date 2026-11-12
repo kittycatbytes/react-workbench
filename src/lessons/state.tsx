@@ -184,7 +184,8 @@ const mutation = sample`
     const [tick, setTick] = useState(0);
     return (
       <>
-        <p>{profile.name}</p>
+        <p>Screen says {profile.name}</p>
+        <p>Unrelated renders: {tick}</p>
         <button
           onClick={() => {
             profile.name = "Grace"; /*focus*/
@@ -206,6 +207,7 @@ const mutation = sample`
 const batch = sample`
   function BatchCounter() {
     const [count, setCount] = useState(0);
+    const [note, setNote] = useState("Neither button has been pressed.");
     return (
       <>
         <button
@@ -226,6 +228,7 @@ const batch = sample`
         >
           Chained updates ×3
         </button>
+        <p>{note}</p>
       </>
     );
   }
@@ -252,7 +255,7 @@ const mutationFixed = sample`
     const [profile, setProfile] = useState({ name: "Ada" });
     return (
       <>
-        <p>{profile.name}</p>
+        <p>Screen says {profile.name}</p>
         <button onClick={() => setProfile({ name: "Grace" })}> /*focus*/
           Set name to Grace
         </button>

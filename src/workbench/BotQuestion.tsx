@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 
-function botPrompt(lessonTitle: string, scenarioLabel: string) {
+function botPrompt(lessonTitle: string, scenarioLabel: string, scenarioTease: string) {
   const about = lessonTitle.charAt(0).toLowerCase() + lessonTitle.slice(1);
-  return `I am reading a React lesson about ${about} and the scenario is ${scenarioLabel}, I have the following question: [enter your question here]`;
+  const subtitle = scenarioTease.replace(/\.$/, "");
+  return `I am reading a React lesson about ${about} and the scenario is ${scenarioLabel} (${subtitle}), I have the following question: [enter your question here]`;
 }
 
 export function BotQuestion({
   lessonTitle,
   scenarioLabel,
+  scenarioTease,
 }: {
   lessonTitle: string;
   scenarioLabel: string;
+  scenarioTease: string;
 }) {
-  const prompt = botPrompt(lessonTitle, scenarioLabel);
+  const prompt = botPrompt(lessonTitle, scenarioLabel, scenarioTease);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(prompt);
   const [prevPrompt, setPrevPrompt] = useState(prompt);

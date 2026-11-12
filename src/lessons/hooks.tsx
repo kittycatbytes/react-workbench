@@ -129,7 +129,13 @@ const customCode = sample`
   function OneLamp() {
     const [on, toggle] = useToggle(false);
     const seconds = useSeconds(on);
-    return <button onClick={toggle}>{seconds}</button>;
+    return (
+      <>
+        <button onClick={toggle}>Lamp: {on ? "On" : "Off"}</button>
+        <p>Lit for {seconds}s</p>
+        <p>The count pauses while the lamp is off, and it keeps its place.</p>
+      </>
+    );
   }
 `;
 
@@ -139,20 +145,35 @@ const twoCode = sample`
     const [right, toggleRight] = useToggle(true);
     return (
       <>
-        <button onClick={toggleLeft}>{String(left)}</button>
-        <button onClick={toggleRight}>{String(right)}</button>
+        <button onClick={toggleLeft}>Left: {left ? "On" : "Off"}</button>
+        <button onClick={toggleRight}>Right: {right ? "On" : "Off"}</button>
+        <p>Two calls to useToggle. Two pieces of state.</p>
       </>
     );
   }
 `;
 
 const brokenCode = sample`
+  function BrokenHooks() {
+    const [extra, setExtra] = useState(false);
+    return (
+      <>
+        <button onClick={() => setExtra(true)}>Call an extra hook</button>
+        <ConditionalHooks extra={extra} />
+      </>
+    );
+  }
+
   function ConditionalHooks({ extra }) {
     if (extra) {
       useState(0);
     }
     const [count, setCount] = useState(0);
-    return <button onClick={() => setCount((value) => value + 1)}>{count}</button>;
+    return (
+      <button onClick={() => setCount((value) => value + 1)}>
+        Legal hook count: {count}
+      </button>
+    );
   }
 `;
 
@@ -163,7 +184,9 @@ const hooksFixed = sample`
     return (
       <>
         <button onClick={() => setExtra(true)}>Set the extra flag</button>
-        <button onClick={() => setCount((value) => value + 1)}>{count}</button>
+        <button onClick={() => setCount((value) => value + 1)}>
+          Legal hook count: {count}
+        </button>
       </>
     );
   }

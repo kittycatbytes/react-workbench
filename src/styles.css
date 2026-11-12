@@ -627,6 +627,77 @@ button { cursor: pointer; }
   font-size: 0.88rem;
 }
 
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.file .kind { font-weight: 650; }
+
+.file .num {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.file .status { margin: 0; }
+
+.file .render-mark { margin-left: auto; }
+
+.file-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.stage button.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #8a8478;
+  color: white;
+}
+
+.stage button.mark svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stage button.mark[aria-pressed="true"] {
+  background: var(--good);
+  color: white;
+}
+
+.file .status[data-ready="false"] {
+  color: var(--copper);
+  font-weight: 650;
+}
+
 .pending {
   margin: 0;
   font-family: var(--mono);
@@ -836,6 +907,22 @@ a.text-btn:hover { text-decoration: underline; text-underline-offset: 0.16em; }
   padding: 0.05em 0.28em;
 }
 
+a.fn {
+  color: var(--teal-deep);
+  font-family: var(--sans);
+  font-weight: 650;
+  text-decoration: none;
+  margin-left: 0.05em;
+  background: none;
+}
+
+a.fn sup {
+  font-size: 0.72em;
+  line-height: 0;
+}
+
+a.fn:hover { text-decoration: underline; }
+
 .code-pre {
   margin: 0;
   padding: 10px 0 16px;
@@ -970,15 +1057,40 @@ a.code-term:focus-visible {
 }
 
 .resets {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  margin-top: auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 12px;
+  align-items: center;
+  height: 45px;
+  padding: 0 12px;
+  background: var(--paper-2);
+  border-top: 1px solid var(--line);
+  container-type: inline-size;
 }
 
-.reset { margin: 0; }
+.reset-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 
-.panel[data-panel="whatif"] .hint { padding: 8px 12px 14px; }
+.resets .reset {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@container (max-width: 220px) {
+  .resets { padding: 0 4px; }
+  .reset-actions { gap: 4px; }
+  .resets .reset { padding: 4px 4px; }
+}
 
 @media (max-width: 860px) {
   .coffee-link { gap: 0; }

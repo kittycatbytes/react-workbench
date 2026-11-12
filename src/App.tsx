@@ -214,7 +214,11 @@ export default function App() {
               </CatchBoundary>
             </div>
           </div>
-          <BotQuestion lessonTitle={lesson.title} scenarioLabel={scenario.label} />
+          <BotQuestion
+            lessonTitle={lesson.title}
+            scenarioLabel={scenario.label}
+            scenarioTease={scenario.tease}
+          />
         </main>
         <Dock
           scenario={shown}

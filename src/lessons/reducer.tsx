@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useReducer, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { RenderMark } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 
 type Track = { id: number; label: string; done: boolean };
 
@@ -246,6 +247,15 @@ const pureCode = sample`
         return state;
     }
   }
+
+  function Playlist() {
+    return (
+      <>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <button onClick={() => dispatch({ type: "clear-done" })}>Clear finished</button>
+      </>
+    );
+  }
 `;
 
 const mutateCode = sample`
@@ -258,6 +268,39 @@ const mutateCode = sample`
       default:
         return state;
     }
+  }
+
+  function Playlist() {
+    return (
+      <>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <button onClick={() => setTick((value) => value + 1)}>Render anyway</button>
+        <p>Add and toggle look frozen until something else renders.</p>
+      </>
+    );
+  }
+`;
+
+const mutateFixed = sample`
+  function pureReducer(state, action) {
+    switch (action.type) {
+      case "add":
+        return {
+          nextId: state.nextId + 1,
+          items: [...state.items, { id: state.nextId, label: action.label, done: false }], /*focus*/
+        };
+      default:
+        return state;
+    }
+  }
+
+  function Playlist() {
+    return (
+      <>
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <p>The reducer returns a new list, so Add paints the track.</p>
+      </>
+    );
   }
 `;
 
@@ -274,6 +317,7 @@ const impureCode = sample`
     return (
       <StrictMode>
         <button onClick={() => dispatch({ type: "add", label })}>Add</button>
+        <p>Tracks {state.items.length}. External log {sideEffects.length}.</p>
       </StrictMode>
     );
   }
@@ -292,6 +336,7 @@ const impureFixed = sample`
         >
           Add
         </button>
+        <p>Tracks {state.items.length}. External log {sideEffects.length}.</p>
       </StrictMode>
     );
   }
@@ -345,7 +390,7 @@ export const reducerLesson: Lesson = {
           <p>
             The reducer pushes into <code>state.items</code> and returns{" "}
             <code>state</code>. Same reference. React compares the return value to the
-            previous state with <code>Object.is</code> and skips the render. The list
+            previous state with <JsApi name="Object.is" n={1} /> and skips the render. The list
             on screen stays as it was.
           </p>
           <p>
@@ -358,8 +403,8 @@ export const reducerLesson: Lesson = {
         </>
       ),
       repair: {
-        code: pureCode.text,
-        focus: pureCode.focus,
+        code: mutateFixed.text,
+        focus: mutateFixed.focus,
         tryThis: "Add a track. It shows up on that click.",
         explanation: (
           <>

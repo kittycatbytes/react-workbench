@@ -47,7 +47,8 @@ function measureCollapsed(dock: HTMLElement) {
 
 function stackPixels(dock: HTMLElement) {
   const bar = dock.querySelector<HTMLElement>(".dock-bar");
-  return dock.clientHeight - (bar?.offsetHeight ?? 0);
+  const resets = dock.querySelector<HTMLElement>(".resets");
+  return dock.clientHeight - (bar?.offsetHeight ?? 0) - (resets?.offsetHeight ?? 0);
 }
 
 function normalize(
@@ -571,17 +572,16 @@ export function Dock({
               );
             })}
           </fieldset>
-          <div className="resets">
-            <button type="button" className="reset" onClick={onResetScenario}>
-              Reset scenario
-            </button>
-            <button type="button" className="reset" onClick={onReset}>
-              Reset stage
-            </button>
-          </div>
-          <p className="hint">
-            Reset scenario mounts the selected scenario again. Reset stage returns to the first scenario and mounts the widget again.
-          </p>
+        </div>
+      </section>
+      <section className="resets" aria-label="Reset">
+        <div className="reset-actions">
+          <button type="button" className="reset" onClick={onResetScenario}>
+            Reset scenario
+          </button>
+          <button type="button" className="reset" onClick={onReset}>
+            Reset lesson
+          </button>
         </div>
       </section>
     </aside>

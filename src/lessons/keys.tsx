@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { sample } from "../workbench/sample.ts";
+import { JsApi } from "../workbench/JsApi.tsx";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 
 type Row = { id: string; name: string; color: string };
@@ -124,21 +125,36 @@ function RandomKeys({ repaired }: { repaired: boolean }) {
 }
 
 const stableCode = sample`
-  {rows.map((row) => (
-    <RowEditor key={row.id} row={row} />
-  ))}
+  <>
+    <button onClick={reverse}>Reverse</button>
+    <button onClick={rotate}>Move first to end</button>
+    <button onClick={nudge}>Nudge parent ({tick})</button>
+    {rows.map((row) => (
+      <RowEditor key={row.id} row={row} />
+    ))}
+  </>
 `;
 
 const indexCode = sample`
-  {rows.map((row, index) => (
-    <RowEditor key={index} row={row} />
-  ))}
+  <>
+    <button onClick={reverse}>Reverse</button>
+    <button onClick={rotate}>Move first to end</button>
+    <button onClick={nudge}>Nudge parent ({tick})</button>
+    {rows.map((row, index) => (
+      <RowEditor key={index} row={row} />
+    ))}
+  </>
 `;
 
 const randomCode = sample`
-  {rows.map((row) => (
-    <RowEditor key={Math.random()} row={row} />
-  ))}
+  <>
+    <button onClick={reverse}>Reverse</button>
+    <button onClick={rotate}>Move first to end</button>
+    <button onClick={nudge}>Nudge parent ({tick})</button>
+    {rows.map((row) => (
+      <RowEditor key={Math.random()} row={row} />
+    ))}
+  </>
 `;
 
 export function KeysDemo({ scenarioId, repaired }: DemoProps) {
@@ -228,7 +244,7 @@ export const keysLesson: Lesson = {
       explanation: (
         <>
           <p>
-            <code>key={"Math.random()"}</code> is a new identity every time this
+            <JsApi name="Math.random()" n={1}>{"key={Math.random()}"}</JsApi> is a new identity every time this
             parent renders. React treats every row as brand new. It unmounts the old
             inputs and mounts new ones, and the text is gone.
           </p>
@@ -252,7 +268,7 @@ export const keysLesson: Lesson = {
               still there.
             </p>
             <p>
-              The broken version used <code>Math.random()</code>, so every parent
+              The broken version used <JsApi name="Math.random()" n={1} />, so every parent
               render looked like a brand new list. A stable id is the fix.
             </p>
           </>

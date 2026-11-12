@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { sample } from "../workbench/sample.ts";
 import type { DemoProps, Lesson } from "../workbench/types.ts";
 import { RenderMark, useConsoleLines, WarningList } from "../workbench/bits.tsx";
+import { JsApi } from "../workbench/JsApi.tsx";
 
 function ControlledField() {
   const id = useId();
@@ -122,14 +123,15 @@ const controlledCode = sample`
 const uncontrolledCode = sample`
   function UncontrolledField() {
     const ref = useRef(null);
-    const [submitted, setSubmitted] = useState("");
+    const [submitted, setSubmitted] = useState("(not read yet)");
     return (
       <>
+        <label>Name</label>
         <input ref={ref} defaultValue="" />
         <button onClick={() => setSubmitted(ref.current.value)}>
           Read value
         </button>
-        <p>{submitted}</p>
+        <p>Read {submitted}</p>
       </>
     );
   }
@@ -137,7 +139,12 @@ const uncontrolledCode = sample`
 
 const frozenCode = sample`
   function FrozenField() {
-    return <input value="you cannot edit this" />;
+    return (
+      <>
+        <label>Name</label>
+        <input value="you cannot edit this" />
+      </>
+    );
   }
 `;
 
@@ -146,12 +153,23 @@ const flipCode = sample`
     const [name, setName] = useState(undefined);
     const controlled = name !== undefined;
     return (
-      <input
-        {...(controlled ? { value: name } : { defaultValue: "start here" })}
-        onChange={(event) => {
-          if (controlled) setName(event.target.value);
-        }}
-      />
+      <>
+        <label>Name</label>
+        <input
+          {...(controlled ? { value: name } : { defaultValue: "start here" })}
+          onChange={(event) => {
+            if (controlled) setName(event.target.value);
+          }}
+        />
+        <button onClick={() => setName("now controlled")} disabled={controlled}>
+          Make it controlled
+        </button>
+        <p>
+          {controlled
+            ? "Controlled. Typing renders."
+            : "Uncontrolled. Typing does not render."}
+        </p>
+      </>
     );
   }
 `;
@@ -161,6 +179,7 @@ const frozenFixed = sample`
     const [name, setName] = useState("Ada");
     return (
       <>
+        <label>Name</label>
         <input value={name} onChange={(event) => setName(event.target.value)} /> /*focus*/
         <p>{name.length} characters</p>
       </>
@@ -248,7 +267,7 @@ export const formsLesson: Lesson = {
           </p>
           <p>
             React logs a warning, and this stage repeats the first line of it under
-            the field. If a locked field is what you meant, pass <code>readOnly</code>{" "}
+            the field. If a locked field is what you meant, pass <JsApi name="readOnly" n={1} />{" "}
             as well. The warning is about an input that looks editable and is not.
           </p>
         </>
