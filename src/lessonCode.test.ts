@@ -38,8 +38,7 @@ const keeps: Record<string, Record<string, { broken: string[]; fixed?: string[] 
     drill: { broken: ["<Middle artist={artist}"] },
   },
   reducer: {
-    pure: { broken: ["function pureReducer"] },
-    mutate: { broken: ["state.items.push"], fixed: ["...state.items"] },
+    pure: { broken: ["state.items.push", "return state"], fixed: ["function pureReducer", "...state.items"] },
     impure: { broken: ["useReducer", "sideEffects.push"], fixed: ["useReducer"] },
   },
   forms: {

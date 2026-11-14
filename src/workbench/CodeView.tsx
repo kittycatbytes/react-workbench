@@ -1,6 +1,73 @@
-import { Highlight } from "prism-react-renderer";
+import { Highlight, type Token } from "prism-react-renderer";
+import type { CSSProperties } from "react";
+import { commentStyle, splitLineComment } from "./codeComments.ts";
 import { codeTheme } from "./codeTheme.ts";
 import { termLessons } from "./terms.ts";
+
+type Painted = {
+  content: string;
+  className: string;
+  style?: CSSProperties;
+  comment: boolean;
+};
+
+function paintLine(
+  line: Token[],
+  getTokenProps: (options: { token: Token }) => {
+    className?: string;
+    style?: CSSProperties;
+    children?: string;
+  },
+): Painted[] {
+  const painted: Painted[] = [];
+  let lineComment = false;
+
+  for (const token of line) {
+    const tokenProps = getTokenProps({ token });
+    const content = token.content;
+    const prismComment = token.types.includes("comment");
+
+    if (lineComment || prismComment) {
+      painted.push({
+        content,
+        className: "token comment",
+        style: commentStyle,
+        comment: true,
+      });
+      if (!prismComment) lineComment = true;
+      continue;
+    }
+
+    const split = splitLineComment(content);
+    if (!split) {
+      painted.push({
+        content,
+        className: tokenProps.className ?? "token",
+        style: tokenProps.style,
+        comment: false,
+      });
+      continue;
+    }
+
+    if (split.before) {
+      painted.push({
+        content: split.before,
+        className: tokenProps.className ?? "token",
+        style: tokenProps.style,
+        comment: false,
+      });
+    }
+    painted.push({
+      content: split.comment,
+      className: "token comment",
+      style: commentStyle,
+      comment: true,
+    });
+    lineComment = true;
+  }
+
+  return painted;
+}
 
 export function CodeView({
   code,
@@ -22,6 +89,7 @@ export function CodeView({
             const lineNumber = index + 1;
             const lineProps = getLineProps({ line });
             const focused = marked.has(lineNumber);
+            const painted = paintLine(line, getTokenProps);
             return (
               <div
                 key={lineNumber}
@@ -34,19 +102,39 @@ export function CodeView({
               >
                 <span className="gutter">{lineNumber}</span>
                 <span className="code-text">
-                  {line.length === 0
+                  {painted.length === 0
                     ? " "
-                    : line.map((token, tokenIndex) => {
-                        const tokenProps = getTokenProps({ token });
+                    : painted.map((token, tokenIndex) => {
+                        if (token.comment) {
+                          return (
+                            <span
+                              key={tokenIndex}
+                              className={token.className}
+                              style={token.style}
+                            >
+                              {token.content}
+                            </span>
+                          );
+                        }
                         const target = termLessons[token.content];
-                        if (!target) return <span key={tokenIndex} {...tokenProps} />;
+                        if (!target) {
+                          return (
+                            <span
+                              key={tokenIndex}
+                              className={token.className}
+                              style={token.style}
+                            >
+                              {token.content}
+                            </span>
+                          );
+                        }
                         const here = target === lessonId;
                         const title = here ? "Current lesson" : "Jump to lesson.";
                         return (
                           <a
                             key={tokenIndex}
-                            {...tokenProps}
-                            className={[tokenProps.className, "code-term"].filter(Boolean).join(" ")}
+                            className={[token.className, "code-term"].filter(Boolean).join(" ")}
+                            style={token.style}
                             href={`#${target}`}
                             title={title}
                             aria-label={`${token.content}. ${title}`}
@@ -56,7 +144,9 @@ export function CodeView({
                               event.preventDefault();
                               if (!here) onJump(target);
                             }}
-                          />
+                          >
+                            {token.content}
+                          </a>
                         );
                       })}
                 </span>

@@ -18,6 +18,9 @@ function copySeed(): Row[] {
 
 function RowEditor({ row }: { row: Row }) {
   const [text, setText] = useState("");
+  // Keep the hint from the row this component mounted with. Index keys leave it
+  // in the slot after a reverse; id keys take it with the name.
+  const [hint] = useState(() => `started as ${row.name}`);
   return (
     <label className="keys-row">
       <i style={{ background: row.color }} />
@@ -26,7 +29,7 @@ function RowEditor({ row }: { row: Row }) {
         type="text"
         value={text}
         aria-label={`${row.name} notes`}
-        placeholder="type, then reorder"
+        placeholder={hint}
         onChange={(event) => setText(event.target.value)}
       />
     </label>
@@ -124,42 +127,141 @@ function RandomKeys({ repaired }: { repaired: boolean }) {
 }
 
 const stableCode = sample`
-  <>
-    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
-    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
-    <p>Times viewed {views}</p> //views defined off-screen
-    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
-    <button onClick={() => setViews((value) => value + 1)}>+</button>
-    {rows.map((row) => ( //rows defined off-screen
-      <RowEditor key={row.id} row={row} /> //RowEditor defined off-screen /*focus*/
-    ))}
-  </>
+  const initialRows = [
+    { id: "a", name: "Alpha", color: "#b8431f" },
+    { id: "b", name: "Bravo", color: "#0c5c56" },
+    { id: "c", name: "Charlie", color: "#1c4f8a" },
+  ];
+
+  function RowEditor({ row }) {
+    const [text, setText] = useState("");
+    const [hint] = useState(() => \`started as \${row.name}\`);
+    return (
+      <label>
+        <span>{row.name}</span>
+        <input
+          value={text}
+          placeholder={hint}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  function List() {
+    const [rows, setRows] = useState(initialRows);
+    const [views, setViews] = useState(1);
+    return (
+      <>
+        <button onClick={() => setRows((current) => [...current].reverse())}>Reverse</button>
+        <button
+          onClick={() =>
+            setRows((current) => [...current.slice(1), current[0]])
+          }
+        >
+          Move first to end
+        </button>
+        <p>Times viewed {views}</p>
+        <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setViews((value) => value + 1)}>+</button>
+        {rows.map((row) => (
+          <RowEditor key={row.id} row={row} /> /*focus*/
+        ))}
+      </>
+    );
+  }
 `;
 
 const indexCode = sample`
-  <>
-    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
-    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
-    <p>Times viewed {views}</p> //views defined off-screen
-    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
-    <button onClick={() => setViews((value) => value + 1)}>+</button>
-    {rows.map((row, index) => ( //rows defined off-screen
-      <RowEditor key={index} row={row} /> //RowEditor defined off-screen /*focus*/
-    ))}
-  </>
+  const initialRows = [
+    { id: "a", name: "Alpha", color: "#b8431f" },
+    { id: "b", name: "Bravo", color: "#0c5c56" },
+    { id: "c", name: "Charlie", color: "#1c4f8a" },
+  ];
+
+  function RowEditor({ row }) {
+    const [text, setText] = useState("");
+    const [hint] = useState(() => \`started as \${row.name}\`);
+    return (
+      <label>
+        <span>{row.name}</span>
+        <input
+          value={text}
+          placeholder={hint}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  function List() {
+    const [rows, setRows] = useState(initialRows);
+    const [views, setViews] = useState(1);
+    return (
+      <>
+        <button onClick={() => setRows((current) => [...current].reverse())}>Reverse</button>
+        <button
+          onClick={() =>
+            setRows((current) => [...current.slice(1), current[0]])
+          }
+        >
+          Move first to end
+        </button>
+        <p>Times viewed {views}</p>
+        <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setViews((value) => value + 1)}>+</button>
+        {rows.map((row, index) => (
+          <RowEditor key={index} row={row} /> /*focus*/
+        ))}
+      </>
+    );
+  }
 `;
 
 const randomCode = sample`
-  <>
-    <button onClick={reverse}>Reverse</button> //reverse defined off-screen
-    <button onClick={rotate}>Move first to end</button> //rotate defined off-screen
-    <p>Times viewed {views}</p> //views defined off-screen
-    <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button> //setViews defined off-screen
-    <button onClick={() => setViews((value) => value + 1)}>+</button>
-    {rows.map((row) => ( //rows defined off-screen
-      <RowEditor key={Math.random()} row={row} /> //RowEditor defined off-screen /*focus*/
-    ))}
-  </>
+  const initialRows = [
+    { id: "a", name: "Alpha", color: "#b8431f" },
+    { id: "b", name: "Bravo", color: "#0c5c56" },
+    { id: "c", name: "Charlie", color: "#1c4f8a" },
+  ];
+
+  function RowEditor({ row }) {
+    const [text, setText] = useState("");
+    const [hint] = useState(() => \`started as \${row.name}\`);
+    return (
+      <label>
+        <span>{row.name}</span>
+        <input
+          value={text}
+          placeholder={hint}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  function List() {
+    const [rows, setRows] = useState(initialRows);
+    const [views, setViews] = useState(1);
+    return (
+      <>
+        <button onClick={() => setRows((current) => [...current].reverse())}>Reverse</button>
+        <button
+          onClick={() =>
+            setRows((current) => [...current.slice(1), current[0]])
+          }
+        >
+          Move first to end
+        </button>
+        <p>Times viewed {views}</p>
+        <button onClick={() => setViews((value) => Math.max(1, value - 1))}>-</button>
+        <button onClick={() => setViews((value) => value + 1)}>+</button>
+        {rows.map((row) => (
+          <RowEditor key={Math.random()} row={row} /> /*focus*/
+        ))}
+      </>
+    );
+  }
 `;
 
 export function KeysDemo({ scenarioId, repaired }: DemoProps) {

@@ -132,8 +132,8 @@ function PurePlaylist() {
   );
 }
 
-function MutatingPlaylist({ repaired }: { repaired: boolean }) {
-  const [state, dispatch] = useReducer(repaired ? pureReducer : mutatingReducer, null, freshState);
+function MutatingPlaylist() {
+  const [state, dispatch] = useReducer(mutatingReducer, null, freshState);
   const [played, setPlayed] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
   return (
@@ -152,16 +152,10 @@ function MutatingPlaylist({ repaired }: { repaired: boolean }) {
         >
           Add
         </button>
-        {repaired ? null : (
-          <CountStepper label="Times played" value={played} onChange={setPlayed} />
-        )}
+        <CountStepper label="Times played" value={played} onChange={setPlayed} />
       </div>
       <TrackList items={state.items} onToggle={(id) => dispatch({ type: "toggle", id })} />
-      {repaired ? (
-        <p className="hint">The reducer returns a new list, so Add paints the track.</p>
-      ) : (
-        <p className="hint">Add and toggle look frozen until something else renders.</p>
-      )}
+      <p className="hint">Add and toggle look frozen until something else renders.</p>
     </div>
   );
 }
@@ -241,16 +235,41 @@ const pureCode = sample`
             item.id === action.id ? { ...item, done: !item.done } : item,
           ),
         };
+      case "clear-done":
+        return { ...state, items: state.items.filter((item) => !item.done) };
       default:
         return state;
     }
   }
 
+  const initialState = {
+    nextId: 3,
+    items: [
+      { id: 1, label: "River", done: false },
+      { id: 2, label: "Kettle", done: true },
+    ],
+  };
+
   function Playlist() {
+    const [state, dispatch] = useReducer(pureReducer, initialState);
+    const [label, setLabel] = useState("");
     return (
       <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
+        <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Track name" />
+        <button onClick={() => dispatch({ type: "add", label })}>Add</button>
         <button onClick={() => dispatch({ type: "clear-done" })}>Clear finished</button>
+        <ul>
+          {state.items.map((item) => (
+            <li key={item.id}>
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => dispatch({ type: "toggle", id: item.id })}
+              />
+              {item.label}
+            </li>
+          ))}
+        </ul>
       </>
     );
   }
@@ -263,42 +282,60 @@ const mutateCode = sample`
         state.items.push({ id: state.nextId, label: action.label, done: false }); /*focus*/
         state.nextId += 1;
         return state; /*focus*/
+      case "toggle": {
+        const item = state.items.find((entry) => entry.id === action.id);
+        if (item) item.done = !item.done;
+        return state;
+      }
+      case "clear-done":
+        state.items = state.items.filter((item) => !item.done);
+        return state;
       default:
         return state;
     }
   }
 
+  const initialState = {
+    nextId: 3,
+    items: [
+      { id: 1, label: "River", done: false },
+      { id: 2, label: "Kettle", done: true },
+    ],
+  };
+
   function Playlist() {
+    const [state, dispatch] = useReducer(mutatingReducer, initialState);
+    const [played, setPlayed] = useState(1);
+    const inputRef = useRef(null);
     return (
       <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
-        <p>Times played {played}</p> //played defined off-screen
-        <button onClick={() => setPlayed((value) => Math.max(1, value - 1))}>-</button> //setPlayed defined off-screen
+        <input ref={inputRef} placeholder="Track name" />
+        <button
+          onClick={() => {
+            const next = inputRef.current.value.trim();
+            if (!next) return;
+            dispatch({ type: "add", label: next });
+            inputRef.current.value = "";
+          }}
+        >
+          Add
+        </button>
+        <p>Times played {played}</p>
+        <button onClick={() => setPlayed((value) => Math.max(1, value - 1))}>-</button>
         <button onClick={() => setPlayed((value) => value + 1)}>+</button>
+        <ul>
+          {state.items.map((item) => (
+            <li key={item.id}>
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => dispatch({ type: "toggle", id: item.id })}
+              />
+              {item.label}
+            </li>
+          ))}
+        </ul>
         <p>Add and toggle look frozen until something else renders.</p>
-      </>
-    );
-  }
-`;
-
-const mutateFixed = sample`
-  function pureReducer(state, action) {
-    switch (action.type) {
-      case "add":
-        return {
-          nextId: state.nextId + 1,
-          items: [...state.items, { id: state.nextId, label: action.label, done: false }], /*focus*/
-        };
-      default:
-        return state;
-    }
-  }
-
-  function Playlist() {
-    return (
-      <>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //dispatch and label defined off-screen
-        <p>The reducer returns a new list, so Add paints the track.</p>
       </>
     );
   }
@@ -307,45 +344,149 @@ const mutateFixed = sample`
 const impureCode = sample`
   const sideEffects = [];
 
-  function impureReducer(state, action) {
-    sideEffects.push(action.type); /*focus*/
-    return pureReducer(state, action); //pureReducer defined off-screen
+  function pureReducer(state, action) {
+    switch (action.type) {
+      case "add":
+        return {
+          nextId: state.nextId + 1,
+          items: [...state.items, { id: state.nextId, label: action.label, done: false }],
+        };
+      case "toggle":
+        return {
+          ...state,
+          items: state.items.map((item) =>
+            item.id === action.id ? { ...item, done: !item.done } : item,
+          ),
+        };
+      case "clear-done":
+        return { ...state, items: state.items.filter((item) => !item.done) };
+      default:
+        return state;
+    }
   }
 
+  function impureReducer(state, action) {
+    sideEffects.push(action.type); /*focus*/
+    return pureReducer(state, action);
+  }
+
+  const initialState = {
+    nextId: 3,
+    items: [
+      { id: 1, label: "River", done: false },
+      { id: 2, label: "Kettle", done: true },
+    ],
+  };
+
   function ImpurePlaylist() {
-    const [state, dispatch] = useReducer(impureReducer, initialState); //initialState defined off-screen
+    const [state, dispatch] = useReducer(impureReducer, initialState);
+    const [label, setLabel] = useState("");
     return (
       <StrictMode>
-        <button onClick={() => dispatch({ type: "add", label })}>Add</button> //label defined off-screen
+        <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Track name" />
+        <button
+          onClick={() => {
+            if (!label.trim()) return;
+            dispatch({ type: "add", label });
+            setLabel("");
+          }}
+        >
+          Add
+        </button>
         <p>Tracks {state.items.length}. External log {sideEffects.length}.</p>
+        <ul>
+          {state.items.map((item) => (
+            <li key={item.id}>
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => dispatch({ type: "toggle", id: item.id })}
+              />
+              {item.label}
+            </li>
+          ))}
+        </ul>
       </StrictMode>
     );
   }
 `;
 
 const impureFixed = sample`
+  const sideEffects = [];
+
+  function pureReducer(state, action) {
+    switch (action.type) {
+      case "add":
+        return {
+          nextId: state.nextId + 1,
+          items: [...state.items, { id: state.nextId, label: action.label, done: false }],
+        };
+      case "toggle":
+        return {
+          ...state,
+          items: state.items.map((item) =>
+            item.id === action.id ? { ...item, done: !item.done } : item,
+          ),
+        };
+      case "clear-done":
+        return { ...state, items: state.items.filter((item) => !item.done) };
+      default:
+        return state;
+    }
+  }
+
+  const initialState = {
+    nextId: 3,
+    items: [
+      { id: 1, label: "River", done: false },
+      { id: 2, label: "Kettle", done: true },
+    ],
+  };
+
   function ImpurePlaylist() {
-    const [state, dispatch] = useReducer(pureReducer, initialState); //pureReducer and initialState defined off-screen
+    const [state, dispatch] = useReducer(pureReducer, initialState);
+    const [label, setLabel] = useState("");
+    /**
+    @alternative_solution
+    useEffect(() => {
+      sideEffects.push("add");
+    }, [state.items.length]);
+    */
     return (
       <StrictMode>
+        <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Track name" />
         <button
           onClick={() => {
-            sideEffects.push("add"); //sideEffects defined off-screen /*focus*/
-            dispatch({ type: "add", label }); //label defined off-screen
+            if (!label.trim()) return;
+            sideEffects.push("add"); /*focus*/
+            dispatch({ type: "add", label });
+            setLabel("");
           }}
         >
           Add
         </button>
         <p>Tracks {state.items.length}. External log {sideEffects.length}.</p>
+        <ul>
+          {state.items.map((item) => (
+            <li key={item.id}>
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => dispatch({ type: "toggle", id: item.id })}
+              />
+              {item.label}
+            </li>
+          ))}
+        </ul>
       </StrictMode>
     );
   }
 `;
 
 export function ReducerDemo({ scenarioId, repaired }: DemoProps) {
-  if (scenarioId === "mutate") return <MutatingPlaylist repaired={repaired} />;
   if (scenarioId === "impure") return <ImpurePlaylist repaired={repaired} />;
-  return <PurePlaylist />;
+  if (repaired) return <PurePlaylist />;
+  return <MutatingPlaylist />;
 }
 
 export const reducerLesson: Lesson = {
@@ -358,30 +499,8 @@ export const reducerLesson: Lesson = {
     {
       id: "pure",
       label: "Pure reducer",
-      tease: "Each action returns a new state object. The list follows it.",
-      tryThis: "Add a track, toggle one, then clear finished.",
-      code: pureCode.text,
-      focus: pureCode.focus,
-      explanation: (
-        <>
-          <p>
-            The reducer is a function from <code>(state, action)</code> to the next
-            state. Add a track, toggle one, clear the finished ones. Each click
-            dispatches an action, the reducer returns a new object, and React renders
-            that object.
-          </p>
-          <p>
-            Nothing else writes to the list. The event handlers only dispatch. That is
-            the point of the reducer: the transitions live in one function you can
-            read without the JSX.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "mutate",
-      label: "Return the same object",
-      tease: "Pushing into the array and returning it skips the render.",
+      tease: "Each action returns a new state object. Mutating and returning the same object skips the render.",
+      fixedFirst: true,
       tryThis: "Add a track. The list stays put. Then increase times played.",
       code: mutateCode.text,
       focus: mutateCode.focus,
@@ -403,15 +522,22 @@ export const reducerLesson: Lesson = {
         </>
       ),
       repair: {
-        code: mutateFixed.text,
-        focus: mutateFixed.focus,
-        tryThis: "Add a track. It shows up on that click.",
+        code: pureCode.text,
+        focus: pureCode.focus,
+        tryThis: "Add a track, toggle one, then clear finished.",
         explanation: (
           <>
             <p>
-              Add returns a new object and a new array. React sees a different state
-              and renders. The track is on the list immediately. Toggle and Clear
-              finished do the same: copy, then change the copy.
+              <code>useReducer</code> returns the current state and <code>dispatch</code>.
+              The reducer is a function from <code>(state, action)</code> to the next
+              state. Add a track, toggle one, clear the finished ones. Each click calls{" "}
+              <code>dispatch</code>, the reducer returns a new object, and React renders
+              that object.
+            </p>
+            <p>
+              Nothing else writes to the list. The event handlers only dispatch. That is
+              the point of the reducer: the transitions live in one function you can
+              read without the JSX.
             </p>
             <p>
               The broken reducer edited the array it was given and returned that same
@@ -438,7 +564,7 @@ export const reducerLesson: Lesson = {
           </p>
           <p>
             The external array is not state. Both calls push to it, so one Add writes
-            two log lines. The counts on the stage are the evidence. If they match,
+            two log lines. The counts on the stage demonstrate this. If they match,
             the extra call did not happen. They should not match.
           </p>
           <p>
@@ -457,6 +583,11 @@ export const reducerLesson: Lesson = {
               The reducer only returns the next list. The click handler writes the log
               line, and a click runs once. <code>StrictMode</code> can still call the
               reducer an extra time. That extra call no longer touches the log.
+            </p>
+            <p>
+              The commented block under <code>useState</code> is the other fix from the
+              broken note: an effect that runs after the new state commits. Leave it
+              commented so the click handler is the path this Fixed sample runs.
             </p>
             <p>
               Add one track. The list grows by one, and the external log grows by one

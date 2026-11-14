@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { lessons } from "./lessons/index.ts";
 import { BotQuestion } from "./workbench/BotQuestion.tsx";
+import { Feedback } from "./workbench/Feedback.tsx";
 import { CatchBoundary } from "./workbench/bits.tsx";
 import { Dock } from "./workbench/Dock.tsx";
 import type { PanelKey } from "./workbench/types.ts";
@@ -216,6 +217,7 @@ export default function App() {
               </CatchBoundary>
             </div>
           </div>
+          <Feedback lessonTitle={lesson.title} scenarioLabel={scenario.label} />
           <BotQuestion
             lessonTitle={lesson.title}
             scenarioLabel={scenario.label}

@@ -283,6 +283,27 @@ button { cursor: pointer; }
   text-underline-offset: 0.16em;
 }
 
+.feedback-status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.feedback-status[data-kind="error"] {
+  color: var(--copper);
+}
+
+.feedback-honey {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .stage-h h1 {
   margin: 2px 0 8px;
   font-family: var(--serif);
@@ -997,6 +1018,11 @@ a.fn:hover { text-decoration: underline; }
 }
 
 .code-text { white-space: pre; }
+
+.code-pre .token.comment {
+  color: #7d9a6e;
+  font-style: italic;
+}
 
 a.code-term {
   color: inherit;

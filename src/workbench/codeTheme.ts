@@ -8,7 +8,7 @@ export const codeTheme: PrismTheme = {
   styles: [
     {
       types: ["comment", "prolog", "doctype", "cdata"],
-      style: { color: "#b3a38e", fontStyle: "italic" },
+      style: { color: "#7d9a6e", fontStyle: "italic" },
     },
     {
       types: ["keyword", "boolean"],
