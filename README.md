@@ -6,9 +6,9 @@ Each lesson puts a live widget next to three panels you can collapse. Code is th
 
 ## Live
 
-https://kittycatbytes.github.io/react-workbench/
+https://react-workbench.vercel.app
 
-Static files only. Vite builds the SPA; GitHub Pages serves `dist/` on every push to `main`. Feedback from the page posts to FormSubmit, which emails the note. There is no app server.
+Vite builds a static SPA. Vercel hosts `dist/` on their edge CDN. Feedback from the page posts to FormSubmit, which emails the note. There is no app server.
 
 ## Run it locally
 
